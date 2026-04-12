@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./inventory.db:/app/inventory.db
+      - ./static:/app/static
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production-use-strong-key}
+      - DATABASE_URL=sqlite:///./inventory.db
+    restart: unless-stopped
+
+  # Optional: Use PostgreSQL for production
+  # Uncomment below and update DATABASE_URL in web service
+  # db:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     - POSTGRES_USER=inventory
+  #     - POSTGRES_PASSWORD=inventory_password
+  #     - POSTGRES_DB=inventory
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   restart: unless-stopped
+
+# volumes:
+#   postgres_data:

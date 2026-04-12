@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Stock Overview - Inventory System{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">Stock Overview</h1>
+    <div class="space-x-2">
+        <a href="/stock/alerts" class="{% if low_stock_count > 0 %}bg-red-600{% else %}bg-gray-600{% endif %} text-white px-4 py-2 rounded-lg hover:opacity-90">
+            Alerts ({{ low_stock_count }})
+        </a>
+        {% if is_admin %}
+        <a href="/stock/history" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
+            Adjustment History
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Stock Table -->
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="w-full">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Store</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Shop</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Reorder</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                {% if is_admin %}
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for product in products %}
+            <tr class="{% if product.stock_quantity == 0 %}bg-red-50{% elif product.stock_quantity <= product.reorder_level %}bg-yellow-50{% endif %}">
+                <td class="px-6 py-4">
+                    <div class="font-medium text-gray-900">{{ product.name }}</div>
+                    <div class="text-sm text-gray-500">{{ product.unit }}</div>
+                </td>
+                <td class="px-6 py-4 text-gray-600">{{ product.category.name }}</td>
+                <td class="px-6 py-4 text-right text-blue-600">
+                    {{ "{:g}".format(product.store_quantity) }}
+                </td>
+                <td class="px-6 py-4 text-right text-green-600">
+                    {{ "{:g}".format(product.shop_quantity) }}
+                </td>
+                <td class="px-6 py-4 text-right font-bold {% if product.stock_quantity == 0 %}text-red-600{% elif product.stock_quantity <= product.reorder_level %}text-yellow-600{% else %}text-gray-800{% endif %}">
+                    {{ "{:g}".format(product.stock_quantity) }}
+                </td>
+                <td class="px-6 py-4 text-right text-gray-600">{{ product.reorder_level }}</td>
+                <td class="px-6 py-4 text-center">
+                    {% if product.stock_quantity == 0 %}
+                    <span class="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded">Out of Stock</span>
+                    {% elif product.shop_quantity == 0 %}
+                    <span class="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-800 rounded">Not in Shop</span>
+                    {% elif product.stock_quantity <= product.reorder_level %}
+                    <span class="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded">Low Stock</span>
+                    {% else %}
+                    <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">OK</span>
+                    {% endif %}
+                </td>
+                {% if is_admin %}
+                <td class="px-6 py-4 text-right">
+                    <a href="/stock/{{ product.id }}/adjust" class="text-blue-600 hover:underline">Adjust</a>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if not products %}
+    <div class="text-center py-8 text-gray-500">No products in inventory</div>
+    {% endif %}
+</div>
+{% endblock %}

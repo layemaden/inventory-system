@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Profit by Product - Inventory System{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">Profit by Product</h1>
+        <span class="text-sm text-purple-600">Admin Only</span>
+    </div>
+    <a href="/reports" class="text-blue-600 hover:underline">All Reports</a>
+</div>
+
+<!-- Date Filter -->
+<div class="bg-white rounded-lg shadow p-4 mb-6">
+    <form method="get" class="flex flex-wrap gap-4 items-end">
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">Start Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}"
+                   class="border rounded-lg px-3 py-2">
+        </div>
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">End Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}"
+                   class="border rounded-lg px-3 py-2">
+        </div>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+            Filter
+        </button>
+    </form>
+</div>
+
+<!-- Product Breakdown -->
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="w-full">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Qty Sold</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Revenue</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Profit</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Margin</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for row in report_data %}
+            <tr>
+                <td class="px-6 py-4 font-medium text-gray-900">{{ row.product }}</td>
+                <td class="px-6 py-4 text-gray-600">{{ row.category }}</td>
+                <td class="px-6 py-4 text-right text-gray-600">{{ row.qty_sold }}</td>
+                <td class="px-6 py-4 text-right text-gray-600">N{{ "{:,.0f}".format(row.revenue) }}</td>
+                <td class="px-6 py-4 text-right text-gray-600">N{{ "{:,.0f}".format(row.cost) }}</td>
+                <td class="px-6 py-4 text-right font-bold {% if row.profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                    N{{ "{:,.0f}".format(row.profit) }}
+                </td>
+                <td class="px-6 py-4 text-right {% if row.margin >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                    {{ row.margin }}%
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if not report_data %}
+    <div class="text-center py-8 text-gray-500">No sales data for this period</div>
+    {% endif %}
+</div>
+{% endblock %}

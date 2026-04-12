@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Inventory System{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    {% if user %}
+    <nav class="bg-blue-600 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center space-x-8">
+                    <a href="/" class="font-bold text-xl">Inventory System</a>
+                    <div class="hidden md:flex space-x-4">
+                        <a href="/" class="hover:bg-blue-700 px-3 py-2 rounded">Dashboard</a>
+                        <a href="/sales" class="hover:bg-blue-700 px-3 py-2 rounded">New Sale</a>
+                        <a href="/products" class="hover:bg-blue-700 px-3 py-2 rounded">Products</a>
+                        <a href="/stock" class="hover:bg-blue-700 px-3 py-2 rounded">Stock</a>
+                        <a href="/reports" class="hover:bg-blue-700 px-3 py-2 rounded">Reports</a>
+                        {% if is_admin %}
+                        <a href="/users" class="hover:bg-blue-700 px-3 py-2 rounded">Users</a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm">{{ user.username }} ({{ user.role }})</span>
+                    <a href="/auth/logout" class="bg-blue-700 hover:bg-blue-800 px-3 py-2 rounded text-sm">Logout</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        // Format currency
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-NG', {
+                style: 'currency',
+                currency: 'NGN',
+                minimumFractionDigits: 0
+            }).format(amount);
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
