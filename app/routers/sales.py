@@ -8,9 +8,10 @@ from typing import List
 import json
 from .. import models, schemas, auth
 from ..database import get_db
+from ..config import settings
 
 router = APIRouter(prefix="/sales", tags=["sales"])
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=settings.TEMPLATES_DIR)
 
 
 @router.get("", response_class=HTMLResponse)
@@ -60,7 +61,10 @@ async def get_products_api(
             "id": p.id,
             "name": p.name,
             "selling_price": p.selling_price,
+            "pack_size": p.pack_size or 1,
+            "pack_price": p.pack_price,
             "shop_quantity": p.shop_quantity,
+            "shop_packs": p.shop_packs,
             "stock_quantity": p.stock_quantity,
             "unit": p.unit,
             "category_id": p.category_id
@@ -77,6 +81,7 @@ async def complete_sale(
 ):
     body = await request.json()
     items = body.get("items", [])
+    payment_method = body.get("payment_method", "cash")  # "cash" or "pos"
 
     if not items:
         raise HTTPException(status_code=400, detail="No items in cart")
@@ -93,27 +98,50 @@ async def complete_sale(
         if not product:
             raise HTTPException(status_code=404, detail=f"Product {item['product_id']} not found")
 
-        # Check shop stock (not total stock)
-        if product.shop_quantity < item["quantity"]:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Insufficient shop stock for {product.name}. Available in shop: {product.shop_quantity}"
-            )
+        sale_type = item.get("sale_type", "unit")  # "unit" or "pack"
+        quantity = item["quantity"]
 
-        item_total = product.selling_price * item["quantity"]
+        # Calculate units to deduct based on sale type
+        if sale_type == "pack":
+            pack_size = product.pack_size or 1
+            units_to_deduct = quantity * pack_size
+            price_per_item = product.pack_price or (product.selling_price * pack_size)
+            cost_for_item = product.cost_price * pack_size  # Cost per pack
+        else:
+            units_to_deduct = quantity
+            price_per_item = product.selling_price
+            cost_for_item = product.cost_price
+
+        # Check shop stock (in units)
+        if product.shop_quantity < units_to_deduct:
+            if sale_type == "pack":
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Insufficient shop stock for {product.name}. Need {units_to_deduct} units for {quantity} pack(s), but only {product.shop_quantity} available"
+                )
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Insufficient shop stock for {product.name}. Available in shop: {product.shop_quantity}"
+                )
+
+        item_total = price_per_item * quantity
         total_amount += item_total
 
         sale_items.append({
             "product": product,
-            "quantity": item["quantity"],
-            "unit_price": product.selling_price,
-            "cost_price": product.cost_price
+            "quantity": quantity,
+            "unit_price": price_per_item,
+            "cost_price": cost_for_item * quantity,  # Total cost for profit calculation
+            "sale_type": sale_type,
+            "units_to_deduct": units_to_deduct
         })
 
     # Create sale
     sale = models.Sale(
         user_id=user.id,
-        total_amount=total_amount
+        total_amount=total_amount,
+        payment_method=payment_method
     )
     db.add(sale)
     db.flush()
@@ -125,12 +153,14 @@ async def complete_sale(
             product_id=item_data["product"].id,
             quantity=item_data["quantity"],
             unit_price=item_data["unit_price"],
-            cost_price=item_data["cost_price"]
+            cost_price=item_data["cost_price"],
+            sale_type=item_data["sale_type"],
+            units_deducted=item_data["units_to_deduct"]
         )
         db.add(sale_item)
 
-        # Deduct from shop stock
-        item_data["product"].shop_quantity -= item_data["quantity"]
+        # Deduct units from shop stock
+        item_data["product"].shop_quantity -= item_data["units_to_deduct"]
 
     db.commit()
 
@@ -190,3 +220,28 @@ async def sale_detail(
             "is_admin": user.role == "admin"
         }
     )
+
+
+@router.post("/{sale_id}/delete")
+async def delete_sale(
+    sale_id: int,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_admin)
+):
+    """Delete a sale and restore inventory (admin only)"""
+    sale = db.query(models.Sale).filter(models.Sale.id == sale_id).first()
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+
+    # Restore inventory for each item
+    for item in sale.items:
+        product = db.query(models.Product).filter(models.Product.id == item.product_id).first()
+        if product:
+            # Restore the units that were deducted
+            product.shop_quantity += item.units_deducted or item.quantity
+
+    # Delete the sale (cascade deletes sale items)
+    db.delete(sale)
+    db.commit()
+
+    return RedirectResponse(url="/sales/history", status_code=302)

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Inventory System{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    {% if user %}
+    <nav class="bg-blue-600 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center space-x-8">
+                    <a href="/" class="font-bold text-xl">Inventory System</a>
+                    <div class="hidden md:flex space-x-4">
+                        <a href="/" class="hover:bg-blue-700 px-3 py-2 rounded">Dashboard</a>
+                        <a href="/sales" class="hover:bg-blue-700 px-3 py-2 rounded">New Sale</a>
+                        <a href="/products" class="hover:bg-blue-700 px-3 py-2 rounded">Products</a>
+                        <a href="/stock" class="hover:bg-blue-700 px-3 py-2 rounded">Stock</a>
+                        <a href="/reports" class="hover:bg-blue-700 px-3 py-2 rounded">Reports</a>
+                        {% if is_admin %}
+                        <a href="/users" class="hover:bg-blue-700 px-3 py-2 rounded">Users</a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm">{{ user.username }} ({{ user.role }})</span>
+                    <a href="/auth/logout" class="bg-blue-700 hover:bg-blue-800 px-3 py-2 rounded text-sm">Logout</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Alert Modal -->
+    <div id="alert-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
+            <div class="text-center">
+                <div id="alert-icon" class="text-5xl mb-4">&#9888;</div>
+                <h3 id="alert-title" class="text-xl font-bold mb-2 text-gray-800">Alert</h3>
+                <p id="alert-message" class="text-gray-600 mb-6"></p>
+                <button onclick="closeAlert()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
+            <div class="text-center">
+                <div id="confirm-icon" class="text-5xl mb-4 text-yellow-500">&#9888;</div>
+                <h3 id="confirm-title" class="text-xl font-bold mb-2 text-gray-800">Confirm</h3>
+                <p id="confirm-message" class="text-gray-600 mb-6"></p>
+                <div class="flex gap-3">
+                    <button onclick="handleConfirm(false)" class="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg font-medium hover:bg-gray-300">
+                        Cancel
+                    </button>
+                    <button id="confirm-btn" onclick="handleConfirm(true)" class="flex-1 bg-red-600 text-white py-2 rounded-lg font-medium hover:bg-red-700">
+                        Confirm
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt Modal -->
+    <div id="prompt-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
+            <div>
+                <h3 id="prompt-title" class="text-xl font-bold mb-2 text-gray-800">Input</h3>
+                <p id="prompt-message" class="text-gray-600 mb-4"></p>
+                <input type="text" id="prompt-input" class="w-full border rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <div class="flex gap-3">
+                    <button onclick="handlePrompt(null)" class="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg font-medium hover:bg-gray-300">
+                        Cancel
+                    </button>
+                    <button onclick="handlePrompt(document.getElementById('prompt-input').value)" class="flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Format currency
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-NG', {
+                style: 'currency',
+                currency: 'NGN',
+                minimumFractionDigits: 0
+            }).format(amount);
+        }
+
+        // Custom Alert Modal
+        let alertResolve = null;
+
+        function showAlert(message, title = 'Alert', icon = 'info') {
+            return new Promise((resolve) => {
+                alertResolve = resolve;
+                document.getElementById('alert-message').textContent = message;
+                document.getElementById('alert-title').textContent = title;
+
+                const iconEl = document.getElementById('alert-icon');
+                if (icon === 'success') {
+                    iconEl.innerHTML = '&#10003;';
+                    iconEl.className = 'text-5xl mb-4 text-green-500';
+                } else if (icon === 'error') {
+                    iconEl.innerHTML = '&#10007;';
+                    iconEl.className = 'text-5xl mb-4 text-red-500';
+                } else if (icon === 'warning') {
+                    iconEl.innerHTML = '&#9888;';
+                    iconEl.className = 'text-5xl mb-4 text-yellow-500';
+                } else {
+                    iconEl.innerHTML = '&#8505;';
+                    iconEl.className = 'text-5xl mb-4 text-blue-500';
+                }
+
+                document.getElementById('alert-modal').classList.remove('hidden');
+            });
+        }
+
+        function closeAlert() {
+            document.getElementById('alert-modal').classList.add('hidden');
+            if (alertResolve) {
+                alertResolve();
+                alertResolve = null;
+            }
+        }
+
+        // Custom Confirm Modal
+        let confirmResolve = null;
+
+        function showConfirm(message, title = 'Confirm', options = {}) {
+            return new Promise((resolve) => {
+                confirmResolve = resolve;
+                document.getElementById('confirm-message').textContent = message;
+                document.getElementById('confirm-title').textContent = title;
+
+                const confirmBtn = document.getElementById('confirm-btn');
+                confirmBtn.textContent = options.confirmText || 'Confirm';
+
+                if (options.danger !== false) {
+                    confirmBtn.className = 'flex-1 bg-red-600 text-white py-2 rounded-lg font-medium hover:bg-red-700';
+                } else {
+                    confirmBtn.className = 'flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700';
+                }
+
+                const iconEl = document.getElementById('confirm-icon');
+                if (options.icon === 'delete') {
+                    iconEl.innerHTML = '&#128465;';
+                    iconEl.className = 'text-5xl mb-4 text-red-500';
+                } else {
+                    iconEl.innerHTML = '&#9888;';
+                    iconEl.className = 'text-5xl mb-4 text-yellow-500';
+                }
+
+                document.getElementById('confirm-modal').classList.remove('hidden');
+            });
+        }
+
+        function handleConfirm(result) {
+            document.getElementById('confirm-modal').classList.add('hidden');
+            if (confirmResolve) {
+                confirmResolve(result);
+                confirmResolve = null;
+            }
+        }
+
+        // Custom Prompt Modal
+        let promptResolve = null;
+
+        function showPrompt(message, title = 'Input', defaultValue = '') {
+            return new Promise((resolve) => {
+                promptResolve = resolve;
+                document.getElementById('prompt-message').textContent = message;
+                document.getElementById('prompt-title').textContent = title;
+                document.getElementById('prompt-input').value = defaultValue;
+                document.getElementById('prompt-modal').classList.remove('hidden');
+                document.getElementById('prompt-input').focus();
+            });
+        }
+
+        function handlePrompt(result) {
+            document.getElementById('prompt-modal').classList.add('hidden');
+            if (promptResolve) {
+                promptResolve(result);
+                promptResolve = null;
+            }
+        }
+
+        // Close modals on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (!document.getElementById('alert-modal').classList.contains('hidden')) {
+                    closeAlert();
+                }
+                if (!document.getElementById('confirm-modal').classList.contains('hidden')) {
+                    handleConfirm(false);
+                }
+                if (!document.getElementById('prompt-modal').classList.contains('hidden')) {
+                    handlePrompt(null);
+                }
+            }
+        });
+
+        // Handle Enter key in prompt
+        document.getElementById('prompt-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                handlePrompt(this.value);
+            }
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

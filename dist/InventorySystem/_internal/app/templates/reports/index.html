@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Inventory System{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold text-gray-800 mb-6">Reports</h1>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <!-- Daily Sales -->
+    <a href="/reports/daily" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+        <div class="text-blue-600 text-3xl mb-4">&#128200;</div>
+        <h3 class="font-bold text-lg text-gray-800">Daily Sales Report</h3>
+        <p class="text-gray-600 mt-2">View sales transactions, revenue, and items sold by day</p>
+    </a>
+
+    {% if is_admin %}
+    <!-- Profit Report -->
+    <a href="/reports/profit" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+        <div class="text-green-600 text-3xl mb-4">&#128176;</div>
+        <h3 class="font-bold text-lg text-gray-800">Profit Report</h3>
+        <p class="text-gray-600 mt-2">View revenue, costs, and profit margins by day</p>
+        <span class="inline-block mt-2 text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">Admin Only</span>
+    </a>
+
+    <!-- Profit by Product -->
+    <a href="/reports/profit/by-product" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+        <div class="text-purple-600 text-3xl mb-4">&#128230;</div>
+        <h3 class="font-bold text-lg text-gray-800">Profit by Product</h3>
+        <p class="text-gray-600 mt-2">See which products are most profitable</p>
+        <span class="inline-block mt-2 text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">Admin Only</span>
+    </a>
+    {% endif %}
+
+    <!-- Stock Alerts -->
+    <a href="/stock/alerts" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+        <div class="text-red-600 text-3xl mb-4">&#9888;</div>
+        <h3 class="font-bold text-lg text-gray-800">Stock Alerts</h3>
+        <p class="text-gray-600 mt-2">View products with low stock levels</p>
+    </a>
+
+    <!-- Sales History -->
+    <a href="/sales/history" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+        <div class="text-gray-600 text-3xl mb-4">&#128203;</div>
+        <h3 class="font-bold text-lg text-gray-800">Sales History</h3>
+        <p class="text-gray-600 mt-2">Browse all past sales transactions</p>
+    </a>
+
+    {% if is_admin %}
+    <!-- Stock History -->
+    <a href="/stock/history" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+        <div class="text-orange-600 text-3xl mb-4">&#128451;</div>
+        <h3 class="font-bold text-lg text-gray-800">Stock Adjustments</h3>
+        <p class="text-gray-600 mt-2">View history of stock changes and restocking</p>
+        <span class="inline-block mt-2 text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">Admin Only</span>
+    </a>
+    {% endif %}
+</div>
+{% endblock %}

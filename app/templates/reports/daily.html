@@ -47,24 +47,86 @@
     </div>
 </div>
 
+<!-- Payment Method Summary -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+        <div class="flex justify-between items-center">
+            <div>
+                <div class="text-gray-500 text-sm">Total Cash</div>
+                <div class="text-2xl font-bold text-green-600">N{{ "{:,.0f}".format(total_cash) }}</div>
+            </div>
+            <div class="bg-green-100 p-3 rounded-full">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
+        <div class="flex justify-between items-center">
+            <div>
+                <div class="text-gray-500 text-sm">Total POS</div>
+                <div class="text-2xl font-bold text-purple-600">N{{ "{:,.0f}".format(total_pos) }}</div>
+            </div>
+            <div class="bg-purple-100 p-3 rounded-full">
+                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Daily Breakdown -->
 <div class="bg-white rounded-lg shadow overflow-hidden">
     <table class="w-full">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Transactions</th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Items Sold</th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Sales</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Trans.</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Items</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cash Sales</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">POS Sales</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                {% if is_admin %}
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase bg-green-50">Cash Carryover</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase bg-purple-50">POS Carryover</th>
+                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
+                {% endif %}
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
             {% for row in report_data %}
-            <tr>
-                <td class="px-6 py-4 font-medium text-gray-900">{{ row.date }}</td>
-                <td class="px-6 py-4 text-right text-gray-600">{{ row.transactions }}</td>
-                <td class="px-6 py-4 text-right text-gray-600">{{ row.items_sold }}</td>
-                <td class="px-6 py-4 text-right font-bold text-green-600">N{{ "{:,.0f}".format(row.total_sales) }}</td>
+            <tr data-date="{{ row.date }}">
+                <td class="px-4 py-4 font-medium text-gray-900">{{ row.date }}</td>
+                <td class="px-4 py-4 text-right text-gray-600">{{ row.transactions }}</td>
+                <td class="px-4 py-4 text-right text-gray-600">{{ row.items_sold }}</td>
+                <td class="px-4 py-4 text-right text-green-600">N{{ "{:,.0f}".format(row.cash_total) }}</td>
+                <td class="px-4 py-4 text-right text-purple-600">N{{ "{:,.0f}".format(row.pos_total) }}</td>
+                <td class="px-4 py-4 text-right font-bold text-gray-800">N{{ "{:,.0f}".format(row.total_sales) }}</td>
+                {% if is_admin %}
+                <td class="px-4 py-4 text-right bg-green-50">
+                    <span class="cash-carryover-display">N{{ "{:,.0f}".format(row.cash_carryover) }}</span>
+                    <input type="number" class="cash-carryover-input hidden w-24 text-right border rounded px-2 py-1"
+                           value="{{ row.cash_carryover }}" step="0.01">
+                </td>
+                <td class="px-4 py-4 text-right bg-purple-50">
+                    <span class="pos-carryover-display">N{{ "{:,.0f}".format(row.pos_carryover) }}</span>
+                    <input type="number" class="pos-carryover-input hidden w-24 text-right border rounded px-2 py-1"
+                           value="{{ row.pos_carryover }}" step="0.01">
+                </td>
+                <td class="px-4 py-4 text-center">
+                    <button onclick="editCarryover('{{ row.date }}')" class="edit-btn text-blue-600 hover:text-blue-800 text-sm">
+                        Edit
+                    </button>
+                    <button onclick="saveCarryover('{{ row.date }}')" class="save-btn hidden text-green-600 hover:text-green-800 text-sm">
+                        Save
+                    </button>
+                    <button onclick="cancelEdit('{{ row.date }}')" class="cancel-btn hidden text-gray-600 hover:text-gray-800 text-sm ml-2">
+                        Cancel
+                    </button>
+                </td>
+                {% endif %}
             </tr>
             {% endfor %}
         </tbody>
@@ -74,4 +136,64 @@
     <div class="text-center py-8 text-gray-500">No sales data for this period</div>
     {% endif %}
 </div>
+
+{% endblock %}
+
+{% block scripts %}
+{% if is_admin %}
+<script>
+function editCarryover(date) {
+    const row = document.querySelector(`tr[data-date="${date}"]`);
+    row.querySelector('.cash-carryover-display').classList.add('hidden');
+    row.querySelector('.pos-carryover-display').classList.add('hidden');
+    row.querySelector('.cash-carryover-input').classList.remove('hidden');
+    row.querySelector('.pos-carryover-input').classList.remove('hidden');
+    row.querySelector('.edit-btn').classList.add('hidden');
+    row.querySelector('.save-btn').classList.remove('hidden');
+    row.querySelector('.cancel-btn').classList.remove('hidden');
+}
+
+function cancelEdit(date) {
+    const row = document.querySelector(`tr[data-date="${date}"]`);
+    row.querySelector('.cash-carryover-display').classList.remove('hidden');
+    row.querySelector('.pos-carryover-display').classList.remove('hidden');
+    row.querySelector('.cash-carryover-input').classList.add('hidden');
+    row.querySelector('.pos-carryover-input').classList.add('hidden');
+    row.querySelector('.edit-btn').classList.remove('hidden');
+    row.querySelector('.save-btn').classList.add('hidden');
+    row.querySelector('.cancel-btn').classList.add('hidden');
+}
+
+async function saveCarryover(date) {
+    const row = document.querySelector(`tr[data-date="${date}"]`);
+    const cashCarryover = parseFloat(row.querySelector('.cash-carryover-input').value) || 0;
+    const posCarryover = parseFloat(row.querySelector('.pos-carryover-input').value) || 0;
+
+    try {
+        const response = await fetch(`/reports/carryover/${date}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                cash_carryover: cashCarryover,
+                pos_carryover: posCarryover
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Update display values
+            row.querySelector('.cash-carryover-display').textContent = 'N' + cashCarryover.toLocaleString();
+            row.querySelector('.pos-carryover-display').textContent = 'N' + posCarryover.toLocaleString();
+            cancelEdit(date);
+            showAlert('Carryover saved successfully', 'Success', 'success');
+        } else {
+            showAlert('Failed to save carryover', 'Error', 'error');
+        }
+    } catch (error) {
+        showAlert('Error saving carryover: ' + error.message, 'Error', 'error');
+    }
+}
+</script>
+{% endif %}
 {% endblock %}

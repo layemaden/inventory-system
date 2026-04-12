@@ -40,16 +40,26 @@ class Product(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
-    cost_price = Column(Float, nullable=False)  # Admin only
-    selling_price = Column(Float, nullable=False)
-    store_quantity = Column(Float, default=0)  # Quantity in store/warehouse
-    shop_quantity = Column(Float, default=0)   # Quantity in shop for sale
+    cost_price = Column(Float, nullable=False)  # Cost per unit (Admin only)
+    selling_price = Column(Float, nullable=False)  # Price per unit
+    pack_size = Column(Integer, default=1)  # Units per pack (e.g., 12 for a dozen)
+    pack_price = Column(Float, nullable=True)  # Price per pack (discounted)
+    store_quantity = Column(Float, default=0)  # Quantity in store/warehouse (in units)
+    shop_quantity = Column(Float, default=0)   # Quantity in shop for sale (in units)
     reorder_level = Column(Integer, default=10)  # Alert when total below this
 
     @property
     def stock_quantity(self):
-        """Total stock across store and shop"""
+        """Total stock across store and shop (in units)"""
         return (self.store_quantity or 0) + (self.shop_quantity or 0)
+
+    @property
+    def shop_packs(self):
+        """Number of full packs available in shop"""
+        if self.pack_size and self.pack_size > 1:
+            return int(self.shop_quantity // self.pack_size)
+        return 0
+
     unit = Column(String(50), default="piece")  # piece, pack, bottle, etc.
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -65,6 +75,7 @@ class Sale(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     total_amount = Column(Float, nullable=False)
+    payment_method = Column(String(10), default="cash")  # "cash" or "pos"
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="sales")
@@ -77,9 +88,11 @@ class SaleItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
-    quantity = Column(Float, nullable=False)
-    unit_price = Column(Float, nullable=False)  # Snapshot at time of sale
-    cost_price = Column(Float, nullable=False)  # Snapshot for profit calculation
+    quantity = Column(Float, nullable=False)  # Quantity sold (in units or packs depending on sale_type)
+    unit_price = Column(Float, nullable=False)  # Price per unit/pack at time of sale
+    cost_price = Column(Float, nullable=False)  # Cost for profit calculation (total cost)
+    sale_type = Column(String(10), default="unit")  # "unit" or "pack"
+    units_deducted = Column(Float, nullable=False, default=0)  # Actual units removed from inventory
 
     sale = relationship("Sale", back_populates="items")
     product = relationship("Product", back_populates="sale_items")
@@ -98,3 +111,47 @@ class StockAdjustment(Base):
 
     product = relationship("Product", back_populates="stock_adjustments")
     user = relationship("User", back_populates="stock_adjustments")
+
+
+class DailyCarryover(Base):
+    __tablename__ = "daily_carryover"
+
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(String(10), unique=True, nullable=False)  # YYYY-MM-DD format
+    cash_carryover = Column(Float, default=0)
+    pos_carryover = Column(Float, default=0)
+    notes = Column(Text, nullable=True)
+    updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class POSChargeConfig(Base):
+    """Configuration for POS withdrawal/deposit charges"""
+    __tablename__ = "pos_charge_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transaction_type = Column(String(20), nullable=False)  # "withdrawal" or "deposit"
+    min_amount = Column(Float, nullable=False)  # Minimum amount for this tier
+    max_amount = Column(Float, nullable=False)  # Maximum amount for this tier
+    charge_type = Column(String(20), default="fixed")  # "fixed" or "percentage"
+    charge_value = Column(Float, nullable=False)  # Amount or percentage
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class POSTransaction(Base):
+    """Log of POS withdrawal/deposit transactions"""
+    __tablename__ = "pos_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    transaction_type = Column(String(20), nullable=False)  # "withdrawal" or "deposit"
+    amount = Column(Float, nullable=False)  # Transaction amount
+    charge = Column(Float, default=0)  # Charge applied
+    total = Column(Float, nullable=False)  # Total (amount + charge for withdrawal, amount - charge for deposit)
+    customer_name = Column(String(100), nullable=True)
+    customer_phone = Column(String(20), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User")

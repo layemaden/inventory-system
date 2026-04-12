@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}POS Transaction History - Inventory System{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">POS Transaction History</h1>
+    <a href="/pos-banking" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">New Transaction</a>
+</div>
+
+<!-- Filter -->
+<div class="bg-white rounded-lg shadow p-4 mb-6">
+    <form method="get" class="flex flex-wrap gap-4 items-end">
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">Start Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}"
+                   class="border rounded-lg px-3 py-2">
+        </div>
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">End Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}"
+                   class="border rounded-lg px-3 py-2">
+        </div>
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">Type</label>
+            <select name="transaction_type" class="border rounded-lg px-3 py-2">
+                <option value="">All</option>
+                <option value="withdrawal" {% if selected_type == 'withdrawal' %}selected{% endif %}>Withdrawals</option>
+                <option value="deposit" {% if selected_type == 'deposit' %}selected{% endif %}>Deposits</option>
+            </select>
+        </div>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+            Filter
+        </button>
+    </form>
+</div>
+
+<!-- Summary -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">
+        <div class="text-gray-500 text-sm">Total Withdrawals</div>
+        <div class="text-xl font-bold text-red-600">N{{ "{:,.0f}".format(summary.total_withdrawals) }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
+        <div class="text-gray-500 text-sm">Total Deposits</div>
+        <div class="text-xl font-bold text-green-600">N{{ "{:,.0f}".format(summary.total_deposits) }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
+        <div class="text-gray-500 text-sm">Withdrawal Charges</div>
+        <div class="text-xl font-bold text-orange-600">N{{ "{:,.0f}".format(summary.withdrawal_charges) }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
+        <div class="text-gray-500 text-sm">Deposit Charges</div>
+        <div class="text-xl font-bold text-purple-600">N{{ "{:,.0f}".format(summary.deposit_charges) }}</div>
+    </div>
+</div>
+
+<!-- Transaction List -->
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="w-full">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date/Time</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Charge</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Staff</th>
+                {% if is_admin %}
+                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for t in transactions %}
+            <tr id="transaction-{{ t.id }}">
+                <td class="px-4 py-3 text-gray-600">#{{ t.id }}</td>
+                <td class="px-4 py-3 text-gray-600">{{ t.created_at.strftime('%b %d, %H:%M') }}</td>
+                <td class="px-4 py-3">
+                    {% if t.transaction_type == 'withdrawal' %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        Withdrawal
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Deposit
+                    </span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 text-gray-600">
+                    {{ t.customer_name or '-' }}
+                    {% if t.customer_phone %}
+                    <div class="text-xs text-gray-400">{{ t.customer_phone }}</div>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 text-right font-medium">N{{ "{:,.0f}".format(t.amount) }}</td>
+                <td class="px-4 py-3 text-right text-orange-600">N{{ "{:,.0f}".format(t.charge) }}</td>
+                <td class="px-4 py-3 text-right font-bold {% if t.transaction_type == 'withdrawal' %}text-red-600{% else %}text-green-600{% endif %}">
+                    N{{ "{:,.0f}".format(t.total) }}
+                </td>
+                <td class="px-4 py-3 text-gray-600">{{ t.user.username }}</td>
+                {% if is_admin %}
+                <td class="px-4 py-3 text-center">
+                    <button onclick="deleteTransaction({{ t.id }})" class="text-red-600 hover:text-red-800 text-sm">
+                        Delete
+                    </button>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if not transactions %}
+    <div class="text-center py-8 text-gray-500">No transactions found for this period</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if is_admin %}
+<script>
+async function deleteTransaction(transactionId) {
+    const confirmed = await showConfirm(
+        'Are you sure you want to delete this transaction? This action cannot be undone.',
+        'Delete Transaction #' + transactionId,
+        {icon: 'delete', confirmText: 'Delete', danger: true}
+    );
+
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch(`/pos-banking/transaction/${transactionId}/delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Remove row from table
+            const row = document.getElementById('transaction-' + transactionId);
+            if (row) {
+                row.remove();
+            }
+            showAlert('Transaction deleted successfully', 'Success', 'success');
+        } else {
+            showAlert(data.detail || 'Failed to delete transaction', 'Error', 'error');
+        }
+    } catch (error) {
+        showAlert('Error deleting transaction: ' + error.message, 'Error', 'error');
+    }
+}
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block title %}POS Charge Configuration - Inventory System{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">POS Charge Configuration</h1>
+    <a href="/pos-banking" class="text-blue-600 hover:underline">Back to POS Banking</a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Add New Config -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">Add Charge Tier</h2>
+
+        <form action="/pos-banking/config/add" method="POST" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Transaction Type</label>
+                <select name="transaction_type" required class="w-full border rounded-lg px-4 py-2">
+                    <option value="withdrawal">Withdrawal</option>
+                    <option value="deposit">Deposit</option>
+                </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Min Amount</label>
+                    <input type="number" name="min_amount" required min="0" step="100"
+                           class="w-full border rounded-lg px-4 py-2" placeholder="0">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Max Amount</label>
+                    <input type="number" name="max_amount" required min="0" step="100"
+                           class="w-full border rounded-lg px-4 py-2" placeholder="10000">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Charge Type</label>
+                <select name="charge_type" required class="w-full border rounded-lg px-4 py-2">
+                    <option value="fixed">Fixed Amount</option>
+                    <option value="percentage">Percentage</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Charge Value</label>
+                <input type="number" name="charge_value" required min="0" step="0.01"
+                       class="w-full border rounded-lg px-4 py-2" placeholder="e.g., 100 for fixed or 1.5 for %">
+                <p class="text-xs text-gray-500 mt-1">For fixed: enter amount (e.g., 100). For percentage: enter % value (e.g., 1.5 for 1.5%)</p>
+            </div>
+
+            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700">
+                Add Charge Tier
+            </button>
+        </form>
+    </div>
+
+    <!-- Current Configurations -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">Current Charge Tiers</h2>
+
+        <!-- Withdrawal Configs -->
+        <h3 class="font-medium text-red-600 mb-2">Withdrawal Charges</h3>
+        <div class="space-y-2 mb-6">
+            {% set has_withdrawal = [] %}
+            {% for config in configs %}
+                {% if config.transaction_type == 'withdrawal' %}
+                    {% set _ = has_withdrawal.append(1) %}
+                    <div class="p-3 bg-red-50 rounded-lg border-l-4 border-red-500" id="config-{{ config.id }}">
+                        <div class="flex justify-between items-start config-display">
+                            <div>
+                                <div class="font-medium">
+                                    N{{ "{:,.0f}".format(config.min_amount) }} - N{{ "{:,.0f}".format(config.max_amount) }}
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    Charge: {% if config.charge_type == 'percentage' %}{{ config.charge_value }}%{% else %}N{{ "{:,.0f}".format(config.charge_value) }}{% endif %}
+                                </div>
+                                <div class="text-xs text-gray-400">
+                                    {% if config.is_active %}Active{% else %}Inactive{% endif %}
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="editConfig({{ config.id }}, {{ config.min_amount }}, {{ config.max_amount }}, '{{ config.charge_type }}', {{ config.charge_value }}, {{ config.is_active }})"
+                                        class="text-sm text-blue-600 hover:underline">Edit</button>
+                                <button onclick="toggleConfig({{ config.id }}, {{ 0 if config.is_active else 1 }})"
+                                        class="text-sm {% if config.is_active %}text-orange-600{% else %}text-green-600{% endif %} hover:underline">
+                                    {% if config.is_active %}Disable{% else %}Enable{% endif %}
+                                </button>
+                                <form action="/pos-banking/config/{{ config.id }}/delete" method="POST" class="inline"
+                                      onsubmit="return confirm('Delete this charge tier?')">
+                                    <button type="submit" class="text-sm text-red-600 hover:underline">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+            {% if not has_withdrawal %}
+                <p class="text-gray-500 text-sm">No withdrawal charges configured</p>
+            {% endif %}
+        </div>
+
+        <!-- Deposit Configs -->
+        <h3 class="font-medium text-green-600 mb-2">Deposit Charges</h3>
+        <div class="space-y-2">
+            {% set has_deposit = [] %}
+            {% for config in configs %}
+                {% if config.transaction_type == 'deposit' %}
+                    {% set _ = has_deposit.append(1) %}
+                    <div class="p-3 bg-green-50 rounded-lg border-l-4 border-green-500" id="config-{{ config.id }}">
+                        <div class="flex justify-between items-start config-display">
+                            <div>
+                                <div class="font-medium">
+                                    N{{ "{:,.0f}".format(config.min_amount) }} - N{{ "{:,.0f}".format(config.max_amount) }}
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    Charge: {% if config.charge_type == 'percentage' %}{{ config.charge_value }}%{% else %}N{{ "{:,.0f}".format(config.charge_value) }}{% endif %}
+                                </div>
+                                <div class="text-xs text-gray-400">
+                                    {% if config.is_active %}Active{% else %}Inactive{% endif %}
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="editConfig({{ config.id }}, {{ config.min_amount }}, {{ config.max_amount }}, '{{ config.charge_type }}', {{ config.charge_value }}, {{ config.is_active }})"
+                                        class="text-sm text-blue-600 hover:underline">Edit</button>
+                                <button onclick="toggleConfig({{ config.id }}, {{ 0 if config.is_active else 1 }})"
+                                        class="text-sm {% if config.is_active %}text-orange-600{% else %}text-green-600{% endif %} hover:underline">
+                                    {% if config.is_active %}Disable{% else %}Enable{% endif %}
+                                </button>
+                                <form action="/pos-banking/config/{{ config.id }}/delete" method="POST" class="inline"
+                                      onsubmit="return confirm('Delete this charge tier?')">
+                                    <button type="submit" class="text-sm text-red-600 hover:underline">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+            {% if not has_deposit %}
+                <p class="text-gray-500 text-sm">No deposit charges configured</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Help Section -->
+<div class="mt-6 bg-blue-50 rounded-lg p-4">
+    <h3 class="font-medium text-blue-800 mb-2">How Charges Work</h3>
+    <ul class="text-sm text-blue-700 space-y-1">
+        <li><strong>Withdrawal:</strong> Customer pays Amount + Charge. You give them the Amount in cash.</li>
+        <li><strong>Deposit:</strong> Customer gives you Amount in cash. They receive Amount - Charge in their account.</li>
+        <li><strong>Tiers:</strong> Create multiple tiers for different amount ranges (e.g., N0-10,000 = N100 charge, N10,001-50,000 = N200 charge)</li>
+        <li><strong>Percentage:</strong> Enter value like 1.5 for 1.5% of the transaction amount</li>
+    </ul>
+</div>
+{% endblock %}
+
+<!-- Edit Modal -->
+<div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold mb-4">Edit Charge Tier</h3>
+        <input type="hidden" id="edit-config-id">
+
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Min Amount</label>
+                    <input type="number" id="edit-min-amount" min="0" step="100"
+                           class="w-full border rounded-lg px-4 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Max Amount</label>
+                    <input type="number" id="edit-max-amount" min="0" step="100"
+                           class="w-full border rounded-lg px-4 py-2">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Charge Type</label>
+                <select id="edit-charge-type" class="w-full border rounded-lg px-4 py-2">
+                    <option value="fixed">Fixed Amount</option>
+                    <option value="percentage">Percentage</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Charge Value</label>
+                <input type="number" id="edit-charge-value" min="0" step="0.01"
+                       class="w-full border rounded-lg px-4 py-2">
+            </div>
+
+            <div class="flex items-center">
+                <input type="checkbox" id="edit-is-active" class="mr-2">
+                <label for="edit-is-active" class="text-sm font-medium text-gray-700">Active</label>
+            </div>
+
+            <div class="flex gap-2 pt-4">
+                <button onclick="closeEditModal()" class="flex-1 py-2 border rounded-lg hover:bg-gray-100">
+                    Cancel
+                </button>
+                <button onclick="saveConfig()" class="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+function editConfig(id, minAmount, maxAmount, chargeType, chargeValue, isActive) {
+    document.getElementById('edit-config-id').value = id;
+    document.getElementById('edit-min-amount').value = minAmount;
+    document.getElementById('edit-max-amount').value = maxAmount;
+    document.getElementById('edit-charge-type').value = chargeType;
+    document.getElementById('edit-charge-value').value = chargeValue;
+    document.getElementById('edit-is-active').checked = isActive == 1;
+    document.getElementById('edit-modal').classList.remove('hidden');
+}
+
+function closeEditModal() {
+    document.getElementById('edit-modal').classList.add('hidden');
+}
+
+async function saveConfig() {
+    const configId = document.getElementById('edit-config-id').value;
+    const data = {
+        min_amount: parseFloat(document.getElementById('edit-min-amount').value),
+        max_amount: parseFloat(document.getElementById('edit-max-amount').value),
+        charge_type: document.getElementById('edit-charge-type').value,
+        charge_value: parseFloat(document.getElementById('edit-charge-value').value),
+        is_active: document.getElementById('edit-is-active').checked ? 1 : 0
+    };
+
+    try {
+        const response = await fetch(`/pos-banking/config/${configId}/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showAlert('Charge tier updated successfully', 'Success', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert('Failed to update', 'Error', 'error');
+        }
+    } catch (error) {
+        showAlert('Error updating config: ' + error.message, 'Error', 'error');
+    }
+}
+
+async function toggleConfig(configId, newStatus) {
+    try {
+        const response = await fetch(`/pos-banking/config/${configId}/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_active: newStatus })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            location.reload();
+        }
+    } catch (error) {
+        showAlert('Error updating config', 'Error', 'error');
+    }
+}
+
+// Close modal on Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeEditModal();
+    }
+});
+</script>
+{% endblock %}
