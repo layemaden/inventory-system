@@ -6,7 +6,12 @@ __pycache__/
 .Python
 venv/
 venv_win/
+venv_build/
 ENV/
+
+# PyInstaller
+build/
+dist/
 
 # Database
 *.db
