@@ -7,6 +7,7 @@ import sys
 import webbrowser
 import threading
 import time
+import socket
 
 # Set up paths for PyInstaller bundled app
 if getattr(sys, 'frozen', False):
@@ -29,27 +30,49 @@ os.makedirs(DATA_DIR, exist_ok=True)
 DB_PATH = os.path.join(DATA_DIR, "inventory.db")
 os.environ['DATABASE_URL'] = f"sqlite:///{DB_PATH}"
 
+def get_local_ip():
+    """Get the local IP address for network access"""
+    try:
+        # Create a socket to determine the local IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "Unable to detect"
+
+
 def open_browser():
     """Open browser after a short delay"""
     time.sleep(2)
     webbrowser.open("http://localhost:8000")
 
 def main():
-    print("=" * 50)
-    print("  INVENTORY MANAGEMENT SYSTEM")
-    print("=" * 50)
+    local_ip = get_local_ip()
+
+    print("=" * 58)
+    print("           INVENTORY MANAGEMENT SYSTEM")
+    print("=" * 58)
     print()
-    print("Starting server...")
-    print("The application will open in your browser automatically.")
+    print("  Starting server...")
+    print("  The application will open in your browser automatically.")
     print()
-    print("Access URL: http://localhost:8000")
+    print("  ACCESS URLs:")
+    print("  ------------")
+    print(f"  This computer:      http://localhost:8000")
+    print(f"  Other computers:    http://{local_ip}:8000")
     print()
-    print(f"Database: {DB_PATH}")
-    print(f"Data folder: {DATA_DIR}")
-    print("(Your data is safe - rebuilding the app won't delete it)")
+    print("  Share the 'Other computers' URL with your staff!")
     print()
-    print("Press Ctrl+C to stop the server")
-    print("=" * 50)
+    print("-" * 58)
+    print(f"  Database: {DB_PATH}")
+    print(f"  Data folder: {DATA_DIR}")
+    print("  (Your data is safe - rebuilding the app won't delete it)")
+    print("-" * 58)
+    print()
+    print("  Press Ctrl+C to stop the server")
+    print("=" * 58)
 
     # Start browser in background thread
     browser_thread = threading.Thread(target=open_browser, daemon=True)
