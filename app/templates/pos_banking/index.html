@@ -54,25 +54,25 @@
 
         <div class="space-y-4">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Amount</label>
-                <input type="number" id="amount" min="0" step="100" placeholder="Enter amount"
+                <label class="block text-sm font-medium text-gray-700 mb-1">Total Amount (including charges)</label>
+                <input type="number" id="total-amount" min="0" step="100" placeholder="Enter total amount"
                        class="w-full border rounded-lg px-4 py-3 text-lg focus:ring-2 focus:ring-blue-500"
                        oninput="calculateCharge()">
             </div>
 
             <!-- Charge Display -->
             <div id="charge-display" class="hidden bg-gray-50 rounded-lg p-4">
-                <div class="flex justify-between text-sm">
-                    <span class="text-gray-600">Amount:</span>
+                <div class="flex justify-between text-lg font-bold">
+                    <span class="text-gray-700">Total Entered:</span>
+                    <span id="display-total" class="text-blue-600">N0</span>
+                </div>
+                <div class="flex justify-between text-sm mt-2">
+                    <span class="text-gray-600" id="amount-label">Transaction Amount:</span>
                     <span id="display-amount" class="font-medium">N0</span>
                 </div>
-                <div class="flex justify-between text-sm mt-1">
-                    <span class="text-gray-600">Charge:</span>
-                    <span id="display-charge" class="font-medium text-orange-600">N0</span>
-                </div>
-                <div class="flex justify-between text-lg font-bold mt-2 pt-2 border-t">
-                    <span id="total-label">Customer Pays:</span>
-                    <span id="display-total" class="text-blue-600">N0</span>
+                <div class="flex justify-between text-sm mt-1 pt-2 border-t">
+                    <span class="text-green-600 font-medium">Your Profit (Charge):</span>
+                    <span id="display-charge" class="font-medium text-green-600">N0</span>
                 </div>
             </div>
 
@@ -141,9 +141,9 @@
             <h3 class="text-xl font-bold mb-2">Transaction Complete!</h3>
             <p class="text-gray-600 mb-2">Transaction #<span id="success-id"></span></p>
             <div class="bg-gray-50 rounded-lg p-4 mb-4 text-left">
-                <div class="flex justify-between"><span>Amount:</span><span id="success-amount"></span></div>
-                <div class="flex justify-between"><span>Charge:</span><span id="success-charge"></span></div>
-                <div class="flex justify-between font-bold border-t mt-2 pt-2"><span>Total:</span><span id="success-total"></span></div>
+                <div class="flex justify-between font-bold"><span>Total:</span><span id="success-total"></span></div>
+                <div class="flex justify-between mt-1"><span>Transaction Amount:</span><span id="success-amount"></span></div>
+                <div class="flex justify-between text-green-600 border-t mt-2 pt-2"><span>Your Profit:</span><span id="success-charge"></span></div>
             </div>
             <button onclick="closeSuccessModal()" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
                 New Transaction
@@ -162,7 +162,7 @@ function setTransactionType(type) {
     const withdrawalBtn = document.getElementById('btn-withdrawal');
     const depositBtn = document.getElementById('btn-deposit');
     const submitBtn = document.getElementById('submit-btn');
-    const totalLabel = document.getElementById('total-label');
+    const amountLabel = document.getElementById('amount-label');
 
     if (type === 'withdrawal') {
         withdrawalBtn.classList.add('border-red-600', 'bg-red-600', 'text-white');
@@ -172,7 +172,7 @@ function setTransactionType(type) {
         submitBtn.textContent = 'Complete Withdrawal';
         submitBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
         submitBtn.classList.add('bg-red-600', 'hover:bg-red-700');
-        totalLabel.textContent = 'Customer Pays:';
+        amountLabel.textContent = 'Cash Given to Customer:';
     } else {
         depositBtn.classList.add('border-green-600', 'bg-green-600', 'text-white');
         depositBtn.classList.remove('border-gray-300', 'text-gray-700');
@@ -181,28 +181,28 @@ function setTransactionType(type) {
         submitBtn.textContent = 'Complete Deposit';
         submitBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
         submitBtn.classList.add('bg-green-600', 'hover:bg-green-700');
-        totalLabel.textContent = 'Customer Receives:';
+        amountLabel.textContent = 'Cash Received from Customer:';
     }
 
     calculateCharge();
 }
 
 async function calculateCharge() {
-    const amount = parseFloat(document.getElementById('amount').value) || 0;
+    const total = parseFloat(document.getElementById('total-amount').value) || 0;
     const chargeDisplay = document.getElementById('charge-display');
 
-    if (amount <= 0) {
+    if (total <= 0) {
         chargeDisplay.classList.add('hidden');
         return;
     }
 
     try {
-        const response = await fetch(`/pos-banking/calculate-charge?transaction_type=${currentType}&amount=${amount}`);
+        const response = await fetch(`/pos-banking/calculate-charge?transaction_type=${currentType}&total=${total}`);
         const data = await response.json();
 
-        document.getElementById('display-amount').textContent = 'N' + data.amount.toLocaleString();
-        document.getElementById('display-charge').textContent = 'N' + data.charge.toLocaleString();
         document.getElementById('display-total').textContent = 'N' + data.total.toLocaleString();
+        document.getElementById('display-amount').textContent = 'N' + Math.round(data.amount).toLocaleString();
+        document.getElementById('display-charge').textContent = 'N' + Math.round(data.charge).toLocaleString();
         chargeDisplay.classList.remove('hidden');
     } catch (error) {
         console.error('Error calculating charge:', error);
@@ -210,15 +210,15 @@ async function calculateCharge() {
 }
 
 async function submitTransaction() {
-    const amount = parseFloat(document.getElementById('amount').value) || 0;
+    const total = parseFloat(document.getElementById('total-amount').value) || 0;
 
-    if (amount <= 0) {
+    if (total <= 0) {
         showAlert('Please enter an amount', 'Error', 'error');
         return;
     }
 
     const confirmed = await showConfirm(
-        `Complete this ${currentType} of N${amount.toLocaleString()}?`,
+        `Complete this ${currentType} of N${total.toLocaleString()}?`,
         'Confirm Transaction',
         {confirmText: 'Complete', danger: false}
     );
@@ -231,7 +231,7 @@ async function submitTransaction() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 transaction_type: currentType,
-                amount: amount,
+                total: total,
                 customer_name: document.getElementById('customer-name').value,
                 customer_phone: document.getElementById('customer-phone').value,
                 notes: document.getElementById('notes').value
@@ -242,13 +242,13 @@ async function submitTransaction() {
 
         if (data.success) {
             document.getElementById('success-id').textContent = data.transaction_id;
-            document.getElementById('success-amount').textContent = 'N' + data.amount.toLocaleString();
-            document.getElementById('success-charge').textContent = 'N' + data.charge.toLocaleString();
+            document.getElementById('success-amount').textContent = 'N' + Math.round(data.amount).toLocaleString();
+            document.getElementById('success-charge').textContent = 'N' + Math.round(data.charge).toLocaleString();
             document.getElementById('success-total').textContent = 'N' + data.total.toLocaleString();
             document.getElementById('success-modal').classList.remove('hidden');
 
             // Reset form
-            document.getElementById('amount').value = '';
+            document.getElementById('total-amount').value = '';
             document.getElementById('customer-name').value = '';
             document.getElementById('customer-phone').value = '';
             document.getElementById('notes').value = '';

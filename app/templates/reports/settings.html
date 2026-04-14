@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}System Settings - Inventory System{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">System Settings</h1>
+        <span class="text-sm text-purple-600">Admin Only</span>
+    </div>
+    <a href="/reports" class="text-blue-600 hover:underline">Back to Reports</a>
+</div>
+
+<div class="max-w-2xl">
+    <!-- POS Transaction Fee Settings -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">POS Transaction Fee</h2>
+        <p class="text-sm text-gray-600 mb-4">
+            Configure the fee charged by the bank for POS sales transactions.
+            The fee is calculated <strong>per transaction</strong> as a percentage of each sale amount, capped at a maximum value per transaction.
+        </p>
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Fee Percentage (%)</label>
+                <input type="number" id="pos_fee_percentage" value="{{ pos_fee_percentage }}"
+                       min="0" max="100" step="0.01"
+                       class="w-full border rounded-lg px-4 py-2" placeholder="e.g., 0.5 for 0.5%">
+                <p class="text-xs text-gray-500 mt-1">Enter the percentage (e.g., 0.5 for 0.5%, 1.5 for 1.5%)</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Maximum Fee Cap (N)</label>
+                <input type="number" id="pos_fee_cap" value="{{ pos_fee_cap }}"
+                       min="0" step="1"
+                       class="w-full border rounded-lg px-4 py-2" placeholder="e.g., 100">
+                <p class="text-xs text-gray-500 mt-1">Maximum fee amount regardless of percentage calculation</p>
+            </div>
+
+            <div class="bg-blue-50 rounded-lg p-4">
+                <h3 class="font-medium text-blue-800 mb-2">Example Calculation (Per Transaction)</h3>
+                <p class="text-sm text-blue-700" id="fee-example">
+                    If fee = 0.5% (cap N100):<br><br>
+                    <strong>Sale 1:</strong> N50,000 × 0.5% = N250 → capped at <strong>N100</strong><br>
+                    <strong>Sale 2:</strong> N10,000 × 0.5% = N50 → <strong>N50</strong><br>
+                    <strong>Sale 3:</strong> N30,000 × 0.5% = N150 → capped at <strong>N100</strong><br><br>
+                    <strong>Total daily fee = N100 + N50 + N100 = N250</strong>
+                </p>
+            </div>
+
+            <button onclick="saveSettings()"
+                    class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700">
+                Save Settings
+            </button>
+        </div>
+    </div>
+
+    <!-- Fee Calculator -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">Fee Calculator</h2>
+        <p class="text-sm text-gray-600 mb-4">Test the fee calculation with a sample POS sale amount.</p>
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Sample POS Sale Amount (N)</label>
+                <input type="number" id="sample_amount" value="50000" min="0" step="100"
+                       class="w-full border rounded-lg px-4 py-2" oninput="calculateSampleFee()">
+            </div>
+
+            <div class="bg-gray-50 rounded-lg p-4">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Calculated Fee:</span>
+                    <span id="calculated_fee" class="font-bold text-red-600">N0</span>
+                </div>
+                <div class="flex justify-between mt-2">
+                    <span class="text-gray-600">Net Amount (after fee):</span>
+                    <span id="net_amount" class="font-bold text-green-600">N0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function calculateSampleFee() {
+    const amount = parseFloat(document.getElementById('sample_amount').value) || 0;
+    const percentage = parseFloat(document.getElementById('pos_fee_percentage').value) || 0;
+    const cap = parseFloat(document.getElementById('pos_fee_cap').value) || 100;
+
+    let fee = amount * (percentage / 100);
+    fee = Math.min(fee, cap);
+
+    document.getElementById('calculated_fee').textContent = 'N' + fee.toLocaleString();
+    document.getElementById('net_amount').textContent = 'N' + (amount - fee).toLocaleString();
+}
+
+async function saveSettings() {
+    const settings = {
+        pos_fee_percentage: document.getElementById('pos_fee_percentage').value,
+        pos_fee_cap: document.getElementById('pos_fee_cap').value
+    };
+
+    try {
+        const response = await fetch('/reports/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showAlert('Settings saved successfully', 'Success', 'success');
+            calculateSampleFee();
+        } else {
+            showAlert('Failed to save settings', 'Error', 'error');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'Error', 'error');
+    }
+}
+
+// Initial calculation
+document.addEventListener('DOMContentLoaded', function() {
+    calculateSampleFee();
+});
+</script>
+{% endblock %}

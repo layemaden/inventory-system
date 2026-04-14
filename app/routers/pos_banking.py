@@ -12,24 +12,48 @@ router = APIRouter(prefix="/pos-banking", tags=["pos-banking"])
 templates = Jinja2Templates(directory=settings.TEMPLATES_DIR)
 
 
-def calculate_charge(db: Session, transaction_type: str, amount: float) -> tuple:
-    """Calculate charge for a given transaction type and amount"""
-    config = db.query(models.POSChargeConfig).filter(
+def calculate_charge_from_total(db: Session, transaction_type: str, total: float) -> tuple:
+    """
+    Calculate charge and actual amount from the total entered by user.
+    The total includes both the transaction amount and the charge (profit).
+    Returns: (actual_amount, charge, config)
+
+    Finds the tier where the back-calculated amount falls within the tier's range.
+    Handles boundary gaps by allowing 1 unit tolerance on min_amount.
+    """
+    # Get all active configs for this transaction type, ordered by min_amount descending
+    # (check higher tiers first to find the best match)
+    configs = db.query(models.POSChargeConfig).filter(
         models.POSChargeConfig.transaction_type == transaction_type,
-        models.POSChargeConfig.min_amount <= amount,
-        models.POSChargeConfig.max_amount >= amount,
         models.POSChargeConfig.is_active == 1
-    ).first()
+    ).order_by(models.POSChargeConfig.min_amount.desc()).all()
 
-    if not config:
-        return 0, None
+    if not configs:
+        return total, 0, None
 
-    if config.charge_type == "percentage":
-        charge = amount * (config.charge_value / 100)
-    else:
-        charge = config.charge_value
+    # Try each config - back-calculate amount and check if it fits the tier
+    for config in configs:
+        if config.charge_type == "percentage":
+            # amount = total / (1 + percentage/100)
+            multiplier = 1 + config.charge_value / 100
+            actual_amount = total / multiplier
+            charge = total - actual_amount
+        else:
+            # Fixed charge: amount = total - charge
+            actual_amount = total - config.charge_value
+            charge = config.charge_value
 
-    return charge, config
+        # Check if the calculated amount falls within this tier's range
+        # Allow 1 unit tolerance on min_amount to handle boundary gaps
+        # e.g., if tier is 5001-10000 and amount is 5000, still match this tier
+        if actual_amount >= (config.min_amount - 1) and actual_amount <= config.max_amount:
+            return actual_amount, charge, config
+
+    # If no tier matches, return total as amount with no charge
+    return total, 0, None
+
+    # If no tier matches, return total as amount with no charge
+    return total, 0, None
 
 
 @router.get("", response_class=HTMLResponse)
@@ -79,22 +103,17 @@ async def pos_banking_page(
 @router.get("/calculate-charge", response_class=JSONResponse)
 async def get_charge(
     transaction_type: str,
-    amount: float,
+    total: float,
     db: Session = Depends(get_db),
     user: models.User = Depends(auth.require_login)
 ):
-    """Calculate charge for a transaction"""
-    charge, config = calculate_charge(db, transaction_type, amount)
-
-    if transaction_type == "withdrawal":
-        total = amount + charge  # Customer pays amount + charge
-    else:  # deposit
-        total = amount - charge  # Customer receives amount - charge
+    """Calculate charge breakdown from total amount entered"""
+    actual_amount, charge, config = calculate_charge_from_total(db, transaction_type, total)
 
     return {
-        "amount": amount,
-        "charge": charge,
         "total": total,
+        "amount": actual_amount,
+        "charge": charge,  # This is the profit
         "charge_type": config.charge_type if config else None
     }
 
@@ -109,25 +128,21 @@ async def create_transaction(
     body = await request.json()
 
     transaction_type = body.get("transaction_type")
-    amount = float(body.get("amount", 0))
+    total = float(body.get("total", 0))
     customer_name = body.get("customer_name", "")
     customer_phone = body.get("customer_phone", "")
     notes = body.get("notes", "")
 
-    if amount <= 0:
+    if total <= 0:
         raise HTTPException(status_code=400, detail="Amount must be greater than 0")
 
-    charge, _ = calculate_charge(db, transaction_type, amount)
-
-    if transaction_type == "withdrawal":
-        total = amount + charge
-    else:
-        total = amount - charge
+    # Calculate the actual amount and charge (profit) from the total
+    actual_amount, charge, _ = calculate_charge_from_total(db, transaction_type, total)
 
     transaction = models.POSTransaction(
         user_id=user.id,
         transaction_type=transaction_type,
-        amount=amount,
+        amount=actual_amount,
         charge=charge,
         total=total,
         customer_name=customer_name,
@@ -140,7 +155,7 @@ async def create_transaction(
     return {
         "success": True,
         "transaction_id": transaction.id,
-        "amount": amount,
+        "amount": actual_amount,
         "charge": charge,
         "total": total
     }

@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}Cash & POS Summary - Inventory System{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">Cash & POS Summary</h1>
+        <span class="text-sm text-purple-600">Admin Only</span>
+    </div>
+    <div class="flex gap-4">
+        <a href="/reports/settings" class="text-blue-600 hover:underline">Settings</a>
+        <a href="/reports" class="text-blue-600 hover:underline">All Reports</a>
+    </div>
+</div>
+
+<!-- Date Filter -->
+<div class="bg-white rounded-lg shadow p-4 mb-6">
+    <form method="get" class="flex flex-wrap gap-4 items-end">
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">Start Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}"
+                   class="border rounded-lg px-3 py-2">
+        </div>
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">End Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}"
+                   class="border rounded-lg px-3 py-2">
+        </div>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+            Filter
+        </button>
+    </form>
+</div>
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <!-- Cash Balance -->
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+        <div class="text-green-600 text-sm font-medium mb-2">Cash Balance</div>
+        <div class="text-3xl font-bold {% if grand_cash_balance >= 0 %}text-green-600{% else %}text-red-600{% endif %} mb-3">
+            N{{ "{:,.0f}".format(grand_cash_balance) }}
+        </div>
+        <div class="space-y-1 text-sm">
+            <div class="flex justify-between">
+                <span class="text-gray-500">+ Cash Sales:</span>
+                <span class="text-green-600">N{{ "{:,.0f}".format(total_cash_sales) }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">+ Deposits:</span>
+                <span class="text-green-600">N{{ "{:,.0f}".format(total_deposit_total) }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">- Withdrawals:</span>
+                <span class="text-red-600">N{{ "{:,.0f}".format(total_withdrawal_amount) }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">+ Carryover:</span>
+                <span>N{{ "{:,.0f}".format(total_cash_carryover) }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- POS Balance -->
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
+        <div class="text-purple-600 text-sm font-medium mb-2">POS Balance</div>
+        <div class="text-3xl font-bold {% if grand_pos_balance >= 0 %}text-purple-600{% else %}text-red-600{% endif %} mb-3">
+            N{{ "{:,.0f}".format(grand_pos_balance) }}
+        </div>
+        <div class="space-y-1 text-sm">
+            <div class="flex justify-between">
+                <span class="text-gray-500">+ POS Sales:</span>
+                <span class="text-purple-600">N{{ "{:,.0f}".format(total_pos_sales) }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">- POS Fee ({{ pos_fee_percentage }}%):</span>
+                <span class="text-red-600">N{{ "{:,.0f}".format(total_pos_sales_fee) }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">+ Withdrawals:</span>
+                <span class="text-green-600">N{{ "{:,.0f}".format(total_withdrawal_total) }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">- Deposits:</span>
+                <span class="text-red-600">N{{ "{:,.0f}".format(total_deposit_amount) }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">+ Carryover:</span>
+                <span>N{{ "{:,.0f}".format(total_pos_carryover) }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Sales -->
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+        <div class="text-blue-600 text-sm font-medium mb-2">Total Sales</div>
+        <div class="text-3xl font-bold text-blue-600 mb-3">
+            N{{ "{:,.0f}".format(total_sales) }}
+        </div>
+        <div class="space-y-1 text-sm">
+            <div class="flex justify-between">
+                <span class="text-gray-500">Cash Sales:</span>
+                <span class="text-green-600">N{{ "{:,.0f}".format(total_cash_sales) }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">POS Sales:</span>
+                <span class="text-purple-600">N{{ "{:,.0f}".format(total_pos_sales) }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- POS Banking Profit -->
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-orange-500">
+        <div class="text-orange-600 text-sm font-medium mb-2">POS Banking Profit</div>
+        <div class="text-3xl font-bold text-green-600 mb-3">
+            N{{ "{:,.0f}".format(total_pos_banking_profit) }}
+        </div>
+        <div class="space-y-1 text-sm">
+            <div class="flex justify-between">
+                <span class="text-gray-500">Withdrawal Vol:</span>
+                <span>N{{ "{:,.0f}".format(total_withdrawal_total) }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">Deposit Vol:</span>
+                <span>N{{ "{:,.0f}".format(total_deposit_total) }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Daily Breakdown -->
+<div class="bg-white rounded-lg shadow overflow-hidden overflow-x-auto">
+    <div class="px-6 py-4 border-b bg-gray-50">
+        <h2 class="font-semibold text-gray-800">Daily Breakdown</h2>
+    </div>
+    <table class="w-full text-sm">
+        <thead class="bg-gray-100">
+            <tr>
+                <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase" rowspan="2">Date</th>
+                <th class="px-2 py-3 text-center text-xs font-medium text-blue-600 uppercase bg-blue-50" colspan="3">Sales</th>
+                <th class="px-2 py-3 text-center text-xs font-medium text-orange-600 uppercase bg-orange-50" colspan="4">POS Banking</th>
+                <th class="px-2 py-3 text-center text-xs font-medium text-gray-600 uppercase bg-gray-50" colspan="2">Carryover</th>
+                <th class="px-2 py-3 text-center text-xs font-medium text-green-600 uppercase bg-green-50" colspan="2">Balance</th>
+            </tr>
+            <tr class="bg-gray-50">
+                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 bg-blue-50">Cash</th>
+                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 bg-blue-50">POS</th>
+                <th class="px-2 py-2 text-right text-xs font-medium text-red-500 bg-blue-50">Fee</th>
+                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 bg-orange-50">W/draw</th>
+                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 bg-orange-50">Cash Out</th>
+                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 bg-orange-50">Deposit</th>
+                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 bg-orange-50">Profit</th>
+                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 bg-gray-100">Cash</th>
+                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 bg-gray-100">POS</th>
+                <th class="px-2 py-2 text-right text-xs font-medium text-green-600 bg-green-50">Cash</th>
+                <th class="px-2 py-2 text-right text-xs font-medium text-purple-600 bg-green-50">POS</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for row in report_data %}
+            <tr class="hover:bg-gray-50">
+                <td class="px-2 py-3 font-medium text-gray-900">{{ row.date }}</td>
+                <td class="px-2 py-3 text-right text-green-600 bg-blue-50/30">N{{ "{:,.0f}".format(row.cash_sales) }}</td>
+                <td class="px-2 py-3 text-right text-purple-600 bg-blue-50/30">N{{ "{:,.0f}".format(row.pos_sales) }}</td>
+                <td class="px-2 py-3 text-right text-red-600 bg-blue-50/30">N{{ "{:,.0f}".format(row.pos_sales_fee) }}</td>
+                <td class="px-2 py-3 text-right text-purple-600 bg-orange-50/30">N{{ "{:,.0f}".format(row.withdrawal_total) }}</td>
+                <td class="px-2 py-3 text-right text-red-600 bg-orange-50/30">N{{ "{:,.0f}".format(row.withdrawal_amount) }}</td>
+                <td class="px-2 py-3 text-right text-green-600 bg-orange-50/30">N{{ "{:,.0f}".format(row.deposit_total) }}</td>
+                <td class="px-2 py-3 text-right font-medium text-green-600 bg-orange-50/30">N{{ "{:,.0f}".format(row.pos_banking_profit) }}</td>
+                <td class="px-2 py-3 text-right bg-gray-50">N{{ "{:,.0f}".format(row.cash_carryover) }}</td>
+                <td class="px-2 py-3 text-right bg-gray-50">N{{ "{:,.0f}".format(row.pos_carryover) }}</td>
+                <td class="px-2 py-3 text-right font-bold bg-green-50/30 {% if row.cash_balance >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                    N{{ "{:,.0f}".format(row.cash_balance) }}
+                </td>
+                <td class="px-2 py-3 text-right font-bold bg-green-50/30 {% if row.pos_balance >= 0 %}text-purple-600{% else %}text-red-600{% endif %}">
+                    N{{ "{:,.0f}".format(row.pos_balance) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot class="bg-gray-100 font-bold">
+            <tr>
+                <td class="px-2 py-3 text-gray-800">TOTAL</td>
+                <td class="px-2 py-3 text-right text-green-600">N{{ "{:,.0f}".format(total_cash_sales) }}</td>
+                <td class="px-2 py-3 text-right text-purple-600">N{{ "{:,.0f}".format(total_pos_sales) }}</td>
+                <td class="px-2 py-3 text-right text-red-600">N{{ "{:,.0f}".format(total_pos_sales_fee) }}</td>
+                <td class="px-2 py-3 text-right text-purple-600">N{{ "{:,.0f}".format(total_withdrawal_total) }}</td>
+                <td class="px-2 py-3 text-right text-red-600">N{{ "{:,.0f}".format(total_withdrawal_amount) }}</td>
+                <td class="px-2 py-3 text-right text-green-600">N{{ "{:,.0f}".format(total_deposit_total) }}</td>
+                <td class="px-2 py-3 text-right text-green-600">N{{ "{:,.0f}".format(total_pos_banking_profit) }}</td>
+                <td class="px-2 py-3 text-right">N{{ "{:,.0f}".format(total_cash_carryover) }}</td>
+                <td class="px-2 py-3 text-right">N{{ "{:,.0f}".format(total_pos_carryover) }}</td>
+                <td class="px-2 py-3 text-right {% if grand_cash_balance >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                    N{{ "{:,.0f}".format(grand_cash_balance) }}
+                </td>
+                <td class="px-2 py-3 text-right {% if grand_pos_balance >= 0 %}text-purple-600{% else %}text-red-600{% endif %}">
+                    N{{ "{:,.0f}".format(grand_pos_balance) }}
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+
+    {% if not report_data %}
+    <div class="text-center py-8 text-gray-500">No data for this period</div>
+    {% endif %}
+</div>
+
+<!-- Legend -->
+<div class="mt-6 bg-gray-50 rounded-lg p-4">
+    <h3 class="font-medium text-gray-800 mb-3">How Balances Are Calculated</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+        <div class="bg-white p-3 rounded border border-green-200">
+            <p class="font-medium text-green-600 mb-2">Cash Balance =</p>
+            <p class="mb-2">Cash Sales + Deposit Total - Withdrawal Amount + Carryover</p>
+            <div class="text-xs text-gray-500 space-y-1">
+                <p><strong>Withdrawal:</strong> Cash Out = Amount (total - fee). Fee goes to POS.</p>
+                <p><strong>Deposit:</strong> Cash In = Total (full amount received from customer).</p>
+            </div>
+        </div>
+        <div class="bg-white p-3 rounded border border-purple-200">
+            <p class="font-medium text-purple-600 mb-2">POS Balance =</p>
+            <p class="mb-2">POS Sales - POS Fee + Withdrawal Total - Deposit Amount + Carryover</p>
+            <div class="text-xs text-gray-500 space-y-1">
+                <p><strong>POS Fee:</strong> {{ pos_fee_percentage }}% of POS sales, capped at N{{ "{:,.0f}".format(pos_fee_cap) }}.</p>
+                <p><strong>Withdrawal:</strong> POS In = Total (full amount from customer's account, includes fee).</p>
+                <p><strong>Deposit:</strong> POS Out = Amount (transferred to customer's account, excludes fee).</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

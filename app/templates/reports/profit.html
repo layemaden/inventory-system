@@ -31,25 +31,61 @@
 </div>
 
 <!-- Summary Cards -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="text-gray-500 text-sm">Total Revenue</div>
-        <div class="text-2xl font-bold text-gray-800">N{{ "{:,.0f}".format(total_revenue) }}</div>
-    </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="text-gray-500 text-sm">Total Cost</div>
-        <div class="text-2xl font-bold text-gray-800">N{{ "{:,.0f}".format(total_cost) }}</div>
-    </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="text-gray-500 text-sm">Total Profit</div>
-        <div class="text-2xl font-bold {% if total_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-            N{{ "{:,.0f}".format(total_profit) }}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <!-- Product Sales Summary -->
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+        <div class="text-blue-600 text-sm font-medium mb-2">Product Sales</div>
+        <div class="space-y-1">
+            <div class="flex justify-between">
+                <span class="text-gray-500 text-sm">Revenue:</span>
+                <span class="font-medium">N{{ "{:,.0f}".format(total_revenue) }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500 text-sm">Cost:</span>
+                <span class="font-medium">N{{ "{:,.0f}".format(total_cost) }}</span>
+            </div>
+            <div class="flex justify-between border-t pt-1">
+                <span class="text-gray-600 text-sm">Profit:</span>
+                <span class="font-bold {% if total_sales_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                    N{{ "{:,.0f}".format(total_sales_profit) }}
+                </span>
+            </div>
         </div>
     </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="text-gray-500 text-sm">Profit Margin</div>
-        <div class="text-2xl font-bold {% if total_margin >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-            {{ total_margin }}%
+
+    <!-- POS Banking Summary -->
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
+        <div class="text-purple-600 text-sm font-medium mb-2">POS Banking</div>
+        <div class="space-y-1">
+            <div class="flex justify-between">
+                <span class="text-gray-500 text-sm">Volume:</span>
+                <span class="font-medium">N{{ "{:,.0f}".format(total_pos_volume) }}</span>
+            </div>
+            <div class="flex justify-between border-t pt-1">
+                <span class="text-gray-600 text-sm">Profit (Charges):</span>
+                <span class="font-bold text-green-600">N{{ "{:,.0f}".format(total_pos_profit) }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Combined Total -->
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+        <div class="text-green-600 text-sm font-medium mb-2">Combined Total</div>
+        <div class="space-y-1">
+            <div class="flex justify-between">
+                <span class="text-gray-500 text-sm">Sales Profit:</span>
+                <span class="font-medium">N{{ "{:,.0f}".format(total_sales_profit) }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500 text-sm">POS Profit:</span>
+                <span class="font-medium">N{{ "{:,.0f}".format(total_pos_profit) }}</span>
+            </div>
+            <div class="flex justify-between border-t pt-1">
+                <span class="text-gray-600 text-sm font-medium">Total Profit:</span>
+                <span class="font-bold text-2xl {% if total_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                    N{{ "{:,.0f}".format(total_profit) }}
+                </span>
+            </div>
         </div>
     </div>
 </div>
@@ -59,24 +95,28 @@
     <table class="w-full">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Revenue</th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost</th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Profit</th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Margin</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-blue-500 uppercase bg-blue-50">Revenue</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-blue-500 uppercase bg-blue-50">Cost</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-blue-500 uppercase bg-blue-50">Sales Profit</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-purple-500 uppercase bg-purple-50">POS Volume</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-purple-500 uppercase bg-purple-50">POS Profit</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-green-600 uppercase bg-green-50">Total Profit</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
             {% for row in report_data %}
             <tr>
-                <td class="px-6 py-4 font-medium text-gray-900">{{ row.date }}</td>
-                <td class="px-6 py-4 text-right text-gray-600">N{{ "{:,.0f}".format(row.revenue) }}</td>
-                <td class="px-6 py-4 text-right text-gray-600">N{{ "{:,.0f}".format(row.cost) }}</td>
-                <td class="px-6 py-4 text-right font-bold {% if row.profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                    N{{ "{:,.0f}".format(row.profit) }}
+                <td class="px-4 py-4 font-medium text-gray-900">{{ row.date }}</td>
+                <td class="px-4 py-4 text-right text-gray-600 bg-blue-50/30">N{{ "{:,.0f}".format(row.revenue) }}</td>
+                <td class="px-4 py-4 text-right text-gray-600 bg-blue-50/30">N{{ "{:,.0f}".format(row.cost) }}</td>
+                <td class="px-4 py-4 text-right font-medium bg-blue-50/30 {% if row.sales_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                    N{{ "{:,.0f}".format(row.sales_profit) }}
                 </td>
-                <td class="px-6 py-4 text-right {% if row.margin >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                    {{ row.margin }}%
+                <td class="px-4 py-4 text-right text-gray-600 bg-purple-50/30">N{{ "{:,.0f}".format(row.pos_volume) }}</td>
+                <td class="px-4 py-4 text-right font-medium text-green-600 bg-purple-50/30">N{{ "{:,.0f}".format(row.pos_profit) }}</td>
+                <td class="px-4 py-4 text-right font-bold bg-green-50/30 {% if row.total_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                    N{{ "{:,.0f}".format(row.total_profit) }}
                 </td>
             </tr>
             {% endfor %}

@@ -14,6 +14,14 @@
     </a>
 
     {% if is_admin %}
+    <!-- Cash & POS Summary -->
+    <a href="/reports/cash-pos-summary" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+        <div class="text-blue-600 text-3xl mb-4">&#128181;</div>
+        <h3 class="font-bold text-lg text-gray-800">Cash & POS Summary</h3>
+        <p class="text-gray-600 mt-2">Complete overview of cash, POS sales, banking & carryover</p>
+        <span class="inline-block mt-2 text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">Admin Only</span>
+    </a>
+
     <!-- Profit Report -->
     <a href="/reports/profit" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
         <div class="text-green-600 text-3xl mb-4">&#128176;</div>
@@ -51,6 +59,14 @@
         <div class="text-orange-600 text-3xl mb-4">&#128451;</div>
         <h3 class="font-bold text-lg text-gray-800">Stock Adjustments</h3>
         <p class="text-gray-600 mt-2">View history of stock changes and restocking</p>
+        <span class="inline-block mt-2 text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">Admin Only</span>
+    </a>
+
+    <!-- System Settings -->
+    <a href="/reports/settings" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+        <div class="text-gray-600 text-3xl mb-4">&#9881;</div>
+        <h3 class="font-bold text-lg text-gray-800">System Settings</h3>
+        <p class="text-gray-600 mt-2">Configure POS fees and other system settings</p>
         <span class="inline-block mt-2 text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">Admin Only</span>
     </a>
     {% endif %}
