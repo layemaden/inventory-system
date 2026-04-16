@@ -96,6 +96,26 @@ def run_migrations():
             )
         """))
 
+        # Create product_packs table for multiple pack categories
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS product_packs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL,
+                name VARCHAR(100) NOT NULL,
+                pack_size INTEGER NOT NULL,
+                pack_price FLOAT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (product_id) REFERENCES products(id)
+            )
+        """))
+
+        # Add pack_id column to sale_items if it doesn't exist
+        result = conn.execute(text("PRAGMA table_info(sale_items)"))
+        columns = [row[1] for row in result.fetchall()]
+        if 'pack_id' not in columns:
+            conn.execute(text("ALTER TABLE sale_items ADD COLUMN pack_id INTEGER"))
+            print("Added pack_id column to sale_items")
+
         conn.commit()
 
 run_migrations()

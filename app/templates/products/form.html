@@ -55,21 +55,38 @@
                            class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Pack Size (units per pack)</label>
-                    <input type="number" name="pack_size" min="1" id="pack_size"
-                           value="{{ product.pack_size if product and product.pack_size else 1 }}"
-                           onchange="updatePackPriceHint()"
-                           class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <p class="text-xs text-gray-500 mt-1">Leave as 1 for products sold only by unit</p>
-                </div>
+                <!-- Pack Categories Section -->
+                <div class="md:col-span-2 border-t pt-4 mt-2">
+                    <div class="flex justify-between items-center mb-3">
+                        <label class="block text-sm font-medium text-gray-700">Pack Categories</label>
+                        <button type="button" onclick="addPackCategory()"
+                                class="text-sm bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">
+                            + Add Pack
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-3">Define different pack sizes with custom names and prices (e.g., "Pack of 3", "Family Pack")</p>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Pack Price (N) <span class="text-gray-400">(optional)</span></label>
-                    <input type="number" name="pack_price" step="0.01" min="0" id="pack_price"
-                           value="{{ product.pack_price if product and product.pack_price else '' }}"
-                           class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <p class="text-xs text-gray-500 mt-1" id="pack_price_hint">Set a discounted price for selling as pack</p>
+                    <div id="pack-categories-container">
+                        {% if product and product.packs %}
+                            {% for pack in product.packs %}
+                            <div class="pack-category-row flex gap-2 mb-2 items-center" data-pack-id="{{ pack.id }}">
+                                <input type="hidden" name="pack_ids[]" value="{{ pack.id }}">
+                                <input type="text" name="pack_names[]" value="{{ pack.name }}" placeholder="Name (e.g., Family Pack)"
+                                       class="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <input type="number" name="pack_sizes[]" value="{{ pack.pack_size }}" min="2" placeholder="Size"
+                                       class="w-20 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <input type="number" name="pack_prices[]" value="{{ pack.pack_price }}" step="0.01" min="0" placeholder="Price (N)"
+                                       class="w-28 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <button type="button" onclick="removePackCategory(this)"
+                                        class="text-red-600 hover:text-red-800 px-2">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
                 </div>
 
                 <div>
@@ -131,15 +148,31 @@ async function deleteProduct() {
 {% endif %}
 
 <script>
-function updatePackPriceHint() {
-    const packSize = parseInt(document.getElementById('pack_size').value) || 1;
-    const hint = document.getElementById('pack_price_hint');
-    if (packSize > 1) {
-        hint.textContent = `Set a discounted price for selling ${packSize} units as a pack`;
-    } else {
-        hint.textContent = 'Pack size must be > 1 to enable pack sales';
-    }
+function addPackCategory() {
+    const container = document.getElementById('pack-categories-container');
+    const row = document.createElement('div');
+    row.className = 'pack-category-row flex gap-2 mb-2 items-center';
+    row.innerHTML = `
+        <input type="hidden" name="pack_ids[]" value="">
+        <input type="text" name="pack_names[]" value="" placeholder="Name (e.g., Family Pack)"
+               class="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+        <input type="number" name="pack_sizes[]" value="" min="2" placeholder="Size"
+               class="w-20 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+        <input type="number" name="pack_prices[]" value="" step="0.01" min="0" placeholder="Price (N)"
+               class="w-28 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+        <button type="button" onclick="removePackCategory(this)"
+                class="text-red-600 hover:text-red-800 px-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+        </button>
+    `;
+    container.appendChild(row);
 }
-updatePackPriceHint();
+
+function removePackCategory(btn) {
+    const row = btn.closest('.pack-category-row');
+    row.remove();
+}
 </script>
 {% endblock %}

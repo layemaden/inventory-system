@@ -58,8 +58,17 @@ async def get_products_api(
             "id": p.id,
             "name": p.name,
             "selling_price": p.selling_price,
-            "pack_size": p.pack_size or 1,
-            "pack_price": p.pack_price,
+            "pack_size": p.pack_size or 1,  # Legacy field for backwards compatibility
+            "pack_price": p.pack_price,  # Legacy field for backwards compatibility
+            "packs": [
+                {
+                    "id": pack.id,
+                    "name": pack.name,
+                    "pack_size": pack.pack_size,
+                    "pack_price": pack.pack_price
+                }
+                for pack in p.packs
+            ],
             "shop_quantity": p.shop_quantity,
             "shop_packs": p.shop_packs,
             "stock_quantity": p.stock_quantity,
@@ -96,15 +105,30 @@ async def complete_sale(
             raise HTTPException(status_code=404, detail=f"Product {item['product_id']} not found")
 
         sale_type = item.get("sale_type", "unit")  # "unit" or "pack"
+        pack_id = item.get("pack_id")  # New: reference to ProductPack
         quantity = item["quantity"]
 
         # Calculate units to deduct based on sale type
         if sale_type == "pack":
-            pack_size = product.pack_size or 1
+            # Try to get pack details from ProductPack table
+            if pack_id:
+                pack = db.query(models.ProductPack).filter(models.ProductPack.id == pack_id).first()
+                if pack:
+                    pack_size = pack.pack_size
+                    price_per_item = pack.pack_price
+                else:
+                    # Fallback to legacy pack data
+                    pack_size = product.pack_size or 1
+                    price_per_item = product.pack_price or (product.selling_price * pack_size)
+            else:
+                # Legacy: use product's pack_size and pack_price
+                pack_size = product.pack_size or 1
+                price_per_item = product.pack_price or (product.selling_price * pack_size)
+
             units_to_deduct = quantity * pack_size
-            price_per_item = product.pack_price or (product.selling_price * pack_size)
             cost_for_item = product.cost_price * pack_size  # Cost per pack
         else:
+            pack_id = None  # Ensure pack_id is None for unit sales
             units_to_deduct = quantity
             price_per_item = product.selling_price
             cost_for_item = product.cost_price
@@ -131,6 +155,7 @@ async def complete_sale(
             "unit_price": price_per_item,
             "cost_price": cost_for_item * quantity,  # Total cost for profit calculation
             "sale_type": sale_type,
+            "pack_id": pack_id,
             "units_to_deduct": units_to_deduct
         })
 
@@ -152,6 +177,7 @@ async def complete_sale(
             unit_price=item_data["unit_price"],
             cost_price=item_data["cost_price"],
             sale_type=item_data["sale_type"],
+            pack_id=item_data.get("pack_id"),
             units_deducted=item_data["units_to_deduct"]
         )
         db.add(sale_item)

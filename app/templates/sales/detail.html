@@ -41,7 +41,9 @@
                     <div class="font-medium">{{ item.product.name }}</div>
                     <div class="text-sm text-gray-500">
                         N{{ "{:,.0f}".format(item.unit_price) }} x {{ "{:g}".format(item.quantity) }}
-                        {% if item.sale_type == 'pack' %}<span class="text-blue-600">(pack)</span>{% endif %}
+                        {% if item.sale_type == 'pack' %}
+                        <span class="text-blue-600">({% if item.pack %}{{ item.pack.name }}{% else %}pack{% endif %})</span>
+                        {% endif %}
                     </div>
                     {% if item.sale_type == 'pack' and item.units_deducted %}
                     <div class="text-xs text-blue-600">{{ "{:g}".format(item.units_deducted) }} units deducted</div>

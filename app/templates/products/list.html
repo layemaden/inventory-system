@@ -59,7 +59,7 @@
             <tr class="{% if product.stock_quantity <= product.reorder_level %}bg-yellow-50{% endif %}">
                 <td class="px-6 py-4">
                     <div class="font-medium text-gray-900">{{ product.name }}</div>
-                    <div class="text-sm text-gray-500">{{ product.unit }}{% if product.pack_size and product.pack_size > 1 %} (pack of {{ product.pack_size }}){% endif %}</div>
+                    <div class="text-sm text-gray-500">{{ product.unit }}{% if product.packs %} ({{ product.packs | length }} pack option{{ 's' if product.packs | length > 1 else '' }}){% elif product.pack_size and product.pack_size > 1 %} (pack of {{ product.pack_size }}){% endif %}</div>
                 </td>
                 <td class="px-6 py-4 text-gray-600">{{ product.category.name }}</td>
                 {% if is_admin %}
@@ -67,7 +67,11 @@
                 {% endif %}
                 <td class="px-6 py-4 text-right">
                     <div class="font-medium">N{{ "{:,.0f}".format(product.selling_price) }}/{{ product.unit }}</div>
-                    {% if product.pack_size and product.pack_size > 1 and product.pack_price %}
+                    {% if product.packs %}
+                    {% for pack in product.packs %}
+                    <div class="text-sm text-green-600">N{{ "{:,.0f}".format(pack.pack_price) }}/{{ pack.name }}</div>
+                    {% endfor %}
+                    {% elif product.pack_size and product.pack_size > 1 and product.pack_price %}
                     <div class="text-sm text-green-600">N{{ "{:,.0f}".format(product.pack_price) }}/pack</div>
                     {% endif %}
                 </td>

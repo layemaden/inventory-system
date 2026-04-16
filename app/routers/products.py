@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Request, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List
 from io import BytesIO
 from openpyxl import Workbook, load_workbook
 from .. import models, schemas, auth
@@ -61,11 +61,15 @@ async def add_product(
     shop_quantity: float = Form(0),
     reorder_level: int = Form(10),
     unit: str = Form("piece"),
-    pack_size: int = Form(1),
-    pack_price: float = Form(None),
     db: Session = Depends(get_db),
     user: models.User = Depends(auth.require_admin)
 ):
+    # Get form data for pack categories
+    form_data = await request.form()
+    pack_names = form_data.getlist("pack_names[]")
+    pack_sizes = form_data.getlist("pack_sizes[]")
+    pack_prices = form_data.getlist("pack_prices[]")
+
     product = models.Product(
         name=name,
         category_id=category_id,
@@ -74,11 +78,22 @@ async def add_product(
         store_quantity=store_quantity,
         shop_quantity=shop_quantity,
         reorder_level=reorder_level,
-        unit=unit,
-        pack_size=pack_size if pack_size > 1 else 1,
-        pack_price=pack_price if pack_size > 1 and pack_price else None
+        unit=unit
     )
     db.add(product)
+    db.flush()  # Get the product ID
+
+    # Add pack categories
+    for i in range(len(pack_names)):
+        if pack_names[i] and pack_sizes[i] and pack_prices[i]:
+            pack = models.ProductPack(
+                product_id=product.id,
+                name=pack_names[i],
+                pack_size=int(pack_sizes[i]),
+                pack_price=float(pack_prices[i])
+            )
+            db.add(pack)
+
     db.commit()
     return RedirectResponse(url="/products", status_code=302)
 
@@ -112,14 +127,19 @@ async def edit_product(
     shop_quantity: float = Form(0),
     reorder_level: int = Form(10),
     unit: str = Form("piece"),
-    pack_size: int = Form(1),
-    pack_price: float = Form(None),
     db: Session = Depends(get_db),
     user: models.User = Depends(auth.require_admin)
 ):
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    # Get form data for pack categories
+    form_data = await request.form()
+    pack_ids = form_data.getlist("pack_ids[]")
+    pack_names = form_data.getlist("pack_names[]")
+    pack_sizes = form_data.getlist("pack_sizes[]")
+    pack_prices = form_data.getlist("pack_prices[]")
 
     product.name = name
     product.category_id = category_id
@@ -129,8 +149,39 @@ async def edit_product(
     product.shop_quantity = shop_quantity
     product.reorder_level = reorder_level
     product.unit = unit
-    product.pack_size = pack_size if pack_size > 1 else 1
-    product.pack_price = pack_price if pack_size > 1 and pack_price else None
+
+    # Track which pack IDs are in the form (to delete removed ones)
+    submitted_pack_ids = set()
+
+    # Update or create pack categories
+    for i in range(len(pack_names)):
+        if pack_names[i] and pack_sizes[i] and pack_prices[i]:
+            pack_id = pack_ids[i] if i < len(pack_ids) and pack_ids[i] else None
+
+            if pack_id:
+                # Update existing pack
+                pack_id = int(pack_id)
+                submitted_pack_ids.add(pack_id)
+                pack = db.query(models.ProductPack).filter(models.ProductPack.id == pack_id).first()
+                if pack:
+                    pack.name = pack_names[i]
+                    pack.pack_size = int(pack_sizes[i])
+                    pack.pack_price = float(pack_prices[i])
+            else:
+                # Create new pack
+                pack = models.ProductPack(
+                    product_id=product.id,
+                    name=pack_names[i],
+                    pack_size=int(pack_sizes[i]),
+                    pack_price=float(pack_prices[i])
+                )
+                db.add(pack)
+
+    # Delete packs that were removed from the form
+    for existing_pack in product.packs:
+        if existing_pack.id not in submitted_pack_ids:
+            db.delete(existing_pack)
+
     db.commit()
 
     return RedirectResponse(url="/products", status_code=302)

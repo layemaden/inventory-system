@@ -25,13 +25,16 @@
                  data-price="{{ product.selling_price }}"
                  data-pack-size="{{ product.pack_size or 1 }}"
                  data-pack-price="{{ product.pack_price or '' }}"
+                 data-packs='[{% for pack in product.packs %}{"id": {{ pack.id }}, "name": "{{ pack.name }}", "pack_size": {{ pack.pack_size }}, "pack_price": {{ pack.pack_price }}}{% if not loop.last %}, {% endif %}{% endfor %}]'
                  data-stock="{{ product.shop_quantity }}"
                  data-category="{{ product.category_id }}"
                  data-unit="{{ product.unit }}"
                  onclick="showAddModal(this)">
                 <div class="font-medium text-gray-800 truncate">{{ product.name }}</div>
                 <div class="text-lg font-bold text-blue-600">N{{ "{:,.0f}".format(product.selling_price) }}/{{ product.unit }}</div>
-                {% if product.pack_size and product.pack_size > 1 and product.pack_price %}
+                {% if product.packs %}
+                <div class="text-sm text-green-600">{{ product.packs | length }} pack option{{ 's' if product.packs | length > 1 else '' }} available</div>
+                {% elif product.pack_size and product.pack_size > 1 and product.pack_price %}
                 <div class="text-sm text-green-600">N{{ "{:,.0f}".format(product.pack_price) }}/pack of {{ product.pack_size }}</div>
                 {% endif %}
                 <div class="text-sm text-gray-500">{{ "{:g}".format(product.shop_quantity) }} {{ product.unit }}s in shop</div>
@@ -95,16 +98,11 @@
 
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-2">Sell as:</label>
-            <div class="flex gap-2">
-                <button type="button" onclick="setSaleType('unit')" id="btn-unit"
-                        class="flex-1 py-2 px-4 rounded-lg border-2 border-blue-600 bg-blue-600 text-white font-medium">
-                    Unit
-                </button>
-                <button type="button" onclick="setSaleType('pack')" id="btn-pack"
-                        class="flex-1 py-2 px-4 rounded-lg border-2 border-gray-300 text-gray-700 font-medium hidden">
-                    Pack
-                </button>
-            </div>
+            <select id="sale-type-select" onchange="onSaleTypeChange()"
+                    class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="unit">Unit</option>
+                <!-- Pack options will be added dynamically -->
+            </select>
         </div>
 
         <div class="mb-4">
@@ -232,6 +230,8 @@ let cart = [];
 let lastSaleData = null;
 let currentProduct = null;
 let currentSaleType = 'unit';
+let currentPackId = null;
+let currentPackData = null;
 let currentPaymentMethod = 'cash';
 
 function formatQty(num) {
@@ -257,36 +257,55 @@ function setPaymentMethod(method) {
 }
 
 function showAddModal(element) {
+    // Parse packs data
+    let packs = [];
+    try {
+        packs = JSON.parse(element.dataset.packs || '[]');
+    } catch (e) {
+        packs = [];
+    }
+
     currentProduct = {
         id: parseInt(element.dataset.id),
         name: element.dataset.name,
         price: parseFloat(element.dataset.price),
         packSize: parseInt(element.dataset.packSize) || 1,
         packPrice: element.dataset.packPrice ? parseFloat(element.dataset.packPrice) : null,
+        packs: packs,
         stock: parseFloat(element.dataset.stock),
         unit: element.dataset.unit || 'unit'
     };
     currentSaleType = 'unit';
+    currentPackId = null;
+    currentPackData = null;
 
     document.getElementById('modal-product-name').textContent = currentProduct.name;
     document.getElementById('modal-qty').value = 1;
 
-    // Show/hide pack button based on whether product has pack pricing
-    const packBtn = document.getElementById('btn-pack');
-    const packInfo = document.getElementById('modal-pack-info');
+    // Build sale type dropdown options
+    const select = document.getElementById('sale-type-select');
+    select.innerHTML = `<option value="unit">Unit - N${currentProduct.price.toLocaleString()}/${currentProduct.unit}</option>`;
 
-    if (currentProduct.packSize > 1 && currentProduct.packPrice) {
-        packBtn.classList.remove('hidden');
-        packBtn.textContent = `Pack of ${currentProduct.packSize}`;
-        packInfo.classList.remove('hidden');
-        const savingsPerUnit = currentProduct.price - (currentProduct.packPrice / currentProduct.packSize);
-        packInfo.textContent = `Pack price: N${currentProduct.packPrice.toLocaleString()} (save N${savingsPerUnit.toFixed(0)}/${currentProduct.unit})`;
-    } else {
-        packBtn.classList.add('hidden');
-        packInfo.classList.add('hidden');
+    // Add pack options from new packs array
+    if (currentProduct.packs && currentProduct.packs.length > 0) {
+        currentProduct.packs.forEach(pack => {
+            const savingsPerUnit = currentProduct.price - (pack.pack_price / pack.pack_size);
+            select.innerHTML += `<option value="pack-${pack.id}" data-pack-id="${pack.id}" data-pack-size="${pack.pack_size}" data-pack-price="${pack.pack_price}">
+                ${pack.name} (${pack.pack_size} units) - N${pack.pack_price.toLocaleString()}
+            </option>`;
+        });
+    }
+    // Fallback to legacy single pack if no packs array but has legacy pack data
+    else if (currentProduct.packSize > 1 && currentProduct.packPrice) {
+        select.innerHTML += `<option value="pack-legacy" data-pack-size="${currentProduct.packSize}" data-pack-price="${currentProduct.packPrice}">
+            Pack of ${currentProduct.packSize} - N${currentProduct.packPrice.toLocaleString()}
+        </option>`;
     }
 
-    setSaleType('unit');
+    const packInfo = document.getElementById('modal-pack-info');
+    packInfo.classList.add('hidden');
+
+    onSaleTypeChange();
     document.getElementById('add-modal').classList.remove('hidden');
 }
 
@@ -295,21 +314,24 @@ function closeAddModal() {
     currentProduct = null;
 }
 
-function setSaleType(type) {
-    currentSaleType = type;
-    const unitBtn = document.getElementById('btn-unit');
-    const packBtn = document.getElementById('btn-pack');
+function onSaleTypeChange() {
+    const select = document.getElementById('sale-type-select');
+    const selectedOption = select.options[select.selectedIndex];
+    const value = select.value;
 
-    if (type === 'unit') {
-        unitBtn.classList.add('border-blue-600', 'bg-blue-600', 'text-white');
-        unitBtn.classList.remove('border-gray-300', 'text-gray-700');
-        packBtn.classList.remove('border-blue-600', 'bg-blue-600', 'text-white');
-        packBtn.classList.add('border-gray-300', 'text-gray-700');
+    if (value === 'unit') {
+        currentSaleType = 'unit';
+        currentPackId = null;
+        currentPackData = null;
     } else {
-        packBtn.classList.add('border-blue-600', 'bg-blue-600', 'text-white');
-        packBtn.classList.remove('border-gray-300', 'text-gray-700');
-        unitBtn.classList.remove('border-blue-600', 'bg-blue-600', 'text-white');
-        unitBtn.classList.add('border-gray-300', 'text-gray-700');
+        currentSaleType = 'pack';
+        // Get pack data from the selected option
+        currentPackId = selectedOption.dataset.packId || null;
+        currentPackData = {
+            id: currentPackId,
+            pack_size: parseInt(selectedOption.dataset.packSize),
+            pack_price: parseFloat(selectedOption.dataset.packPrice)
+        };
     }
 
     updateModalTotal();
@@ -324,8 +346,9 @@ function adjustModalQty(delta) {
     newVal = Math.round(newVal * 10) / 10;
 
     // Check max based on sale type
+    const packSize = (currentSaleType === 'pack' && currentPackData) ? currentPackData.pack_size : 1;
     const maxQty = currentSaleType === 'pack'
-        ? Math.floor(currentProduct.stock / currentProduct.packSize)
+        ? Math.floor(currentProduct.stock / packSize)
         : currentProduct.stock;
 
     if (newVal > maxQty) {
@@ -339,8 +362,9 @@ function adjustModalQty(delta) {
 
 function setModalQty(qty) {
     const input = document.getElementById('modal-qty');
+    const packSize = (currentSaleType === 'pack' && currentPackData) ? currentPackData.pack_size : 1;
     const maxQty = currentSaleType === 'pack'
-        ? Math.floor(currentProduct.stock / currentProduct.packSize)
+        ? Math.floor(currentProduct.stock / packSize)
         : currentProduct.stock;
 
     if (qty > maxQty) {
@@ -356,13 +380,14 @@ function updateModalTotal() {
     if (!currentProduct) return;
 
     const qty = parseFloat(document.getElementById('modal-qty').value) || 1;
-    let price, subtotal, unitsUsed, maxQty;
+    let price, subtotal, unitsUsed, maxQty, packSize;
 
-    if (currentSaleType === 'pack') {
-        price = currentProduct.packPrice;
+    if (currentSaleType === 'pack' && currentPackData) {
+        packSize = currentPackData.pack_size;
+        price = currentPackData.pack_price;
         subtotal = price * qty;
-        unitsUsed = qty * currentProduct.packSize;
-        maxQty = Math.floor(currentProduct.stock / currentProduct.packSize);
+        unitsUsed = qty * packSize;
+        maxQty = Math.floor(currentProduct.stock / packSize);
         document.getElementById('modal-price-label').textContent = 'Price per pack:';
         document.getElementById('modal-stock-info').textContent = `Available: ${maxQty} packs (${currentProduct.stock} ${currentProduct.unit}s)`;
         document.getElementById('modal-units-info').textContent = `Will deduct ${unitsUsed} ${currentProduct.unit}s from inventory`;
@@ -384,7 +409,8 @@ function confirmAddToCart() {
     if (!currentProduct) return;
 
     const qty = parseFloat(document.getElementById('modal-qty').value) || 1;
-    const unitsNeeded = currentSaleType === 'pack' ? qty * currentProduct.packSize : qty;
+    const packSize = (currentSaleType === 'pack' && currentPackData) ? currentPackData.pack_size : 1;
+    const unitsNeeded = currentSaleType === 'pack' ? qty * packSize : qty;
 
     // Check existing cart items for this product
     const existingUnits = cart
@@ -396,10 +422,18 @@ function confirmAddToCart() {
         return;
     }
 
-    const price = currentSaleType === 'pack' ? currentProduct.packPrice : currentProduct.price;
+    const price = (currentSaleType === 'pack' && currentPackData) ? currentPackData.pack_price : currentProduct.price;
 
-    // Add as new cart item (allows same product as unit and pack separately)
-    const cartKey = `${currentProduct.id}-${currentSaleType}`;
+    // Get pack name for display
+    let packName = '';
+    if (currentSaleType === 'pack' && currentPackId) {
+        const select = document.getElementById('sale-type-select');
+        const selectedOption = select.options[select.selectedIndex];
+        packName = selectedOption.text.split(' - ')[0]; // Get pack name from option text
+    }
+
+    // Add as new cart item (allows same product with different pack types)
+    const cartKey = `${currentProduct.id}-${currentSaleType}-${currentPackId || 'unit'}`;
     const existing = cart.find(i => i.cartKey === cartKey);
 
     if (existing) {
@@ -414,7 +448,9 @@ function confirmAddToCart() {
             stock: currentProduct.stock,
             quantity: qty,
             saleType: currentSaleType,
-            packSize: currentProduct.packSize,
+            packId: currentPackId,
+            packName: packName,
+            packSize: packSize,
             unitsUsed: unitsNeeded,
             unit: currentProduct.unit
         });
@@ -492,7 +528,12 @@ function renderCart() {
         const subtotal = item.price * item.quantity;
         total += subtotal;
 
-        const typeLabel = item.saleType === 'pack' ? `(pack of ${item.packSize})` : `(${item.unit})`;
+        let typeLabel;
+        if (item.saleType === 'pack') {
+            typeLabel = item.packName ? `(${item.packName})` : `(pack of ${item.packSize})`;
+        } else {
+            typeLabel = `(${item.unit})`;
+        }
 
         html += `
             <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
@@ -525,6 +566,8 @@ async function completeSale() {
         price: item.price,
         quantity: item.quantity,
         sale_type: item.saleType,
+        pack_id: item.packId,
+        pack_name: item.packName,
         subtotal: item.price * item.quantity,
         unitsUsed: item.unitsUsed,
         unit: item.unit,
@@ -534,7 +577,8 @@ async function completeSale() {
     const items = cart.map(item => ({
         product_id: item.id,
         quantity: item.quantity,
-        sale_type: item.saleType
+        sale_type: item.saleType,
+        pack_id: item.packId ? parseInt(item.packId) : null
     }));
 
     try {
@@ -590,7 +634,10 @@ function prepareReceipt(saleData) {
 
     let itemsHtml = '';
     saleData.items.forEach(item => {
-        const typeStr = item.sale_type === 'pack' ? ` (pk${item.packSize})` : '';
+        let typeStr = '';
+        if (item.sale_type === 'pack') {
+            typeStr = item.pack_name ? ` (${item.pack_name})` : ` (pk${item.packSize})`;
+        }
         itemsHtml += `
             <div style="margin-bottom: 5px;">
                 <div>${item.name}${typeStr}</div>

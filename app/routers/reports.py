@@ -694,6 +694,269 @@ def calculate_pos_fee_per_transaction(amount: float, fee_percentage: float, fee_
     return min(fee, fee_cap)
 
 
+@router.get("/product-sales", response_class=HTMLResponse)
+async def product_sales_breakdown(
+    request: Request,
+    start_date: str = None,
+    end_date: str = None,
+    category_id: int = None,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_login)
+):
+    """Product sales breakdown - shows sales stats for each product"""
+    # Default to last 30 days
+    if not end_date:
+        end_date = date.today().isoformat()
+    if not start_date:
+        start_date = (date.today() - timedelta(days=30)).isoformat()
+
+    start = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+    # Base query for product sales
+    query = db.query(
+        models.Product.id,
+        models.Product.name,
+        models.Category.name.label("category"),
+        models.Product.selling_price,
+        models.Product.cost_price,
+        models.Product.shop_quantity,
+        models.Product.store_quantity,
+        func.count(models.SaleItem.id).label("sale_count"),
+        func.sum(models.SaleItem.quantity).label("qty_sold"),
+        func.sum(models.SaleItem.units_deducted).label("units_sold"),
+        func.sum(models.SaleItem.unit_price * models.SaleItem.quantity).label("revenue"),
+        func.sum(models.SaleItem.cost_price).label("total_cost"),
+        func.sum(case((models.SaleItem.sale_type == 'pack', models.SaleItem.quantity), else_=0)).label("packs_sold"),
+        func.sum(case((models.SaleItem.sale_type == 'unit', models.SaleItem.quantity), else_=0)).label("units_sold_direct")
+    ).outerjoin(
+        models.SaleItem, models.Product.id == models.SaleItem.product_id
+    ).outerjoin(
+        models.Sale,
+        (models.SaleItem.sale_id == models.Sale.id) &
+        (func.date(models.Sale.created_at) >= start) &
+        (func.date(models.Sale.created_at) <= end)
+    ).join(
+        models.Category, models.Product.category_id == models.Category.id
+    )
+
+    if category_id:
+        query = query.filter(models.Product.category_id == category_id)
+
+    query = query.group_by(
+        models.Product.id, models.Product.name, models.Category.name,
+        models.Product.selling_price, models.Product.cost_price,
+        models.Product.shop_quantity, models.Product.store_quantity
+    ).order_by(
+        func.sum(models.SaleItem.unit_price * models.SaleItem.quantity).desc().nullslast()
+    )
+
+    products = query.all()
+
+    # Get categories for filter
+    categories = db.query(models.Category).order_by(models.Category.name).all()
+
+    report_data = []
+    total_revenue = 0
+    total_cost = 0
+    total_units = 0
+
+    for p in products:
+        revenue = p.revenue or 0
+        cost = p.total_cost or 0
+        profit = revenue - cost
+        margin = (profit / revenue * 100) if revenue > 0 else 0
+        units = p.units_sold or p.qty_sold or 0
+
+        total_revenue += revenue
+        total_cost += cost
+        total_units += units
+
+        report_data.append({
+            "id": p.id,
+            "name": p.name,
+            "category": p.category,
+            "selling_price": p.selling_price,
+            "cost_price": p.cost_price,
+            "shop_quantity": p.shop_quantity or 0,
+            "store_quantity": p.store_quantity or 0,
+            "sale_count": p.sale_count or 0,
+            "qty_sold": p.qty_sold or 0,
+            "units_sold": units,
+            "packs_sold": p.packs_sold or 0,
+            "units_sold_direct": p.units_sold_direct or 0,
+            "revenue": revenue,
+            "cost": cost,
+            "profit": profit,
+            "margin": round(margin, 1)
+        })
+
+    total_profit = total_revenue - total_cost
+    total_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
+
+    return templates.TemplateResponse(
+        request, "reports/product_sales.html", {
+            "user": user,
+            "is_admin": user.role == "admin",
+            "report_data": report_data,
+            "categories": categories,
+            "selected_category": category_id,
+            "start_date": start_date,
+            "end_date": end_date,
+            "total_revenue": total_revenue,
+            "total_cost": total_cost,
+            "total_profit": total_profit,
+            "total_margin": round(total_margin, 1),
+            "total_units": total_units
+        }
+    )
+
+
+@router.get("/product-sales/{product_id}", response_class=HTMLResponse)
+async def product_sales_detail(
+    request: Request,
+    product_id: int,
+    start_date: str = None,
+    end_date: str = None,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_login)
+):
+    """Detailed sales history for a specific product"""
+    # Default to last 30 days
+    if not end_date:
+        end_date = date.today().isoformat()
+    if not start_date:
+        start_date = (date.today() - timedelta(days=30)).isoformat()
+
+    start = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+    # Get product
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not product:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    # Get all sales for this product
+    sales_query = db.query(
+        models.SaleItem,
+        models.Sale.created_at,
+        models.Sale.id.label("sale_id"),
+        models.Sale.payment_method,
+        models.User.username
+    ).join(
+        models.Sale, models.SaleItem.sale_id == models.Sale.id
+    ).join(
+        models.User, models.Sale.user_id == models.User.id
+    ).filter(
+        models.SaleItem.product_id == product_id,
+        func.date(models.Sale.created_at) >= start,
+        func.date(models.Sale.created_at) <= end
+    ).order_by(
+        models.Sale.created_at.desc()
+    )
+
+    sales = sales_query.all()
+
+    # Calculate summary stats
+    total_qty = 0
+    total_units = 0
+    total_revenue = 0
+    total_cost = 0
+    unit_sales_count = 0
+    pack_sales_count = 0
+
+    sale_items = []
+    for item in sales:
+        sale_item = item.SaleItem
+        qty = sale_item.quantity
+        units = sale_item.units_deducted or qty
+        revenue = sale_item.unit_price * qty
+        cost = sale_item.cost_price
+
+        total_qty += qty
+        total_units += units
+        total_revenue += revenue
+        total_cost += cost
+
+        if sale_item.sale_type == 'pack':
+            pack_sales_count += 1
+        else:
+            unit_sales_count += 1
+
+        # Get pack name if available
+        pack_name = None
+        if sale_item.pack_id and sale_item.pack:
+            pack_name = sale_item.pack.name
+
+        sale_items.append({
+            "sale_id": item.sale_id,
+            "date": item.created_at,
+            "username": item.username,
+            "payment_method": item.payment_method,
+            "quantity": qty,
+            "units_deducted": units,
+            "unit_price": sale_item.unit_price,
+            "total": revenue,
+            "cost": cost,
+            "profit": revenue - cost,
+            "sale_type": sale_item.sale_type,
+            "pack_name": pack_name
+        })
+
+    total_profit = total_revenue - total_cost
+    total_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
+
+    # Get daily breakdown
+    daily_stats = db.query(
+        func.date(models.Sale.created_at).label("sale_date"),
+        func.sum(models.SaleItem.quantity).label("qty"),
+        func.sum(models.SaleItem.units_deducted).label("units"),
+        func.sum(models.SaleItem.unit_price * models.SaleItem.quantity).label("revenue")
+    ).join(
+        models.Sale, models.SaleItem.sale_id == models.Sale.id
+    ).filter(
+        models.SaleItem.product_id == product_id,
+        func.date(models.Sale.created_at) >= start,
+        func.date(models.Sale.created_at) <= end
+    ).group_by(
+        func.date(models.Sale.created_at)
+    ).order_by(
+        func.date(models.Sale.created_at).desc()
+    ).all()
+
+    daily_data = [
+        {
+            "date": str(d.sale_date),
+            "qty": d.qty or 0,
+            "units": d.units or d.qty or 0,
+            "revenue": d.revenue or 0
+        }
+        for d in daily_stats
+    ]
+
+    return templates.TemplateResponse(
+        request, "reports/product_sales_detail.html", {
+            "user": user,
+            "is_admin": user.role == "admin",
+            "product": product,
+            "sale_items": sale_items,
+            "daily_data": daily_data,
+            "start_date": start_date,
+            "end_date": end_date,
+            "total_qty": total_qty,
+            "total_units": total_units,
+            "total_revenue": total_revenue,
+            "total_cost": total_cost,
+            "total_profit": total_profit,
+            "total_margin": round(total_margin, 1),
+            "unit_sales_count": unit_sales_count,
+            "pack_sales_count": pack_sales_count,
+            "sale_count": len(sale_items)
+        }
+    )
+
+
 @router.get("/cash-pos-summary", response_class=HTMLResponse)
 async def cash_pos_summary(
     request: Request,

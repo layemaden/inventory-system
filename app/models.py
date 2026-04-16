@@ -42,8 +42,8 @@ class Product(Base):
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
     cost_price = Column(Float, nullable=False)  # Cost per unit (Admin only)
     selling_price = Column(Float, nullable=False)  # Price per unit
-    pack_size = Column(Integer, default=1)  # Units per pack (e.g., 12 for a dozen)
-    pack_price = Column(Float, nullable=True)  # Price per pack (discounted)
+    pack_size = Column(Integer, default=1)  # DEPRECATED: Use product_packs instead
+    pack_price = Column(Float, nullable=True)  # DEPRECATED: Use product_packs instead
     store_quantity = Column(Float, default=0)  # Quantity in store/warehouse (in units)
     shop_quantity = Column(Float, default=0)   # Quantity in shop for sale (in units)
     reorder_level = Column(Integer, default=10)  # Alert when total below this
@@ -55,8 +55,11 @@ class Product(Base):
 
     @property
     def shop_packs(self):
-        """Number of full packs available in shop"""
-        if self.pack_size and self.pack_size > 1:
+        """Number of full packs available in shop (uses first pack category if available)"""
+        if self.packs:
+            first_pack = self.packs[0]
+            return int(self.shop_quantity // first_pack.pack_size)
+        elif self.pack_size and self.pack_size > 1:
             return int(self.shop_quantity // self.pack_size)
         return 0
 
@@ -65,8 +68,23 @@ class Product(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     category = relationship("Category", back_populates="products")
+    packs = relationship("ProductPack", back_populates="product", cascade="all, delete-orphan")
     sale_items = relationship("SaleItem", back_populates="product")
     stock_adjustments = relationship("StockAdjustment", back_populates="product")
+
+
+class ProductPack(Base):
+    """Pack categories for a product (e.g., Pack of 3, Pack of 5, Family Pack)"""
+    __tablename__ = "product_packs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    name = Column(String(100), nullable=False)  # Custom name like "Family Pack", "Wholesale"
+    pack_size = Column(Integer, nullable=False)  # Number of units in this pack
+    pack_price = Column(Float, nullable=False)  # Price for this pack
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    product = relationship("Product", back_populates="packs")
 
 
 class Sale(Base):
@@ -92,10 +110,12 @@ class SaleItem(Base):
     unit_price = Column(Float, nullable=False)  # Price per unit/pack at time of sale
     cost_price = Column(Float, nullable=False)  # Cost for profit calculation (total cost)
     sale_type = Column(String(10), default="unit")  # "unit" or "pack"
+    pack_id = Column(Integer, ForeignKey("product_packs.id"), nullable=True)  # Reference to pack category if sold as pack
     units_deducted = Column(Float, nullable=False, default=0)  # Actual units removed from inventory
 
     sale = relationship("Sale", back_populates="items")
     product = relationship("Product", back_populates="sale_items")
+    pack = relationship("ProductPack")
 
 
 class StockAdjustment(Base):
