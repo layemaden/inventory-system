@@ -29,10 +29,7 @@ async def list_products(
     categories = db.query(models.Category).order_by(models.Category.name).all()
 
     return templates.TemplateResponse(
-        "products/list.html",
-        {
-            "request": request,
-            "products": products,
+        request, "products/list.html", {"products": products,
             "categories": categories,
             "selected_category": category_id,
             "user": user,
@@ -49,8 +46,7 @@ async def add_product_page(
 ):
     categories = db.query(models.Category).order_by(models.Category.name).all()
     return templates.TemplateResponse(
-        "products/form.html",
-        {"request": request, "categories": categories, "user": user, "product": None}
+        request, "products/form.html", {"categories": categories, "user": user, "product": None}
     )
 
 
@@ -100,8 +96,7 @@ async def edit_product_page(
 
     categories = db.query(models.Category).order_by(models.Category.name).all()
     return templates.TemplateResponse(
-        "products/form.html",
-        {"request": request, "categories": categories, "user": user, "product": product}
+        request, "products/form.html", {"categories": categories, "user": user, "product": product}
     )
 
 
@@ -165,8 +160,7 @@ async def upload_page(
 ):
     categories = db.query(models.Category).order_by(models.Category.name).all()
     return templates.TemplateResponse(
-        "products/upload.html",
-        {"request": request, "user": user, "categories": categories}
+        request, "products/upload.html", {"user": user, "categories": categories}
     )
 
 
@@ -249,8 +243,7 @@ async def upload_products(
     """Upload products from Excel file"""
     if not file.filename.endswith(('.xlsx', '.xls')):
         return templates.TemplateResponse(
-            "products/upload.html",
-            {"request": request, "user": user, "error": "Please upload an Excel file (.xlsx or .xls)",
+        request, "products/upload.html", {"user": user, "error": "Please upload an Excel file (.xlsx or .xls)",
              "categories": db.query(models.Category).all()}
         )
 
@@ -347,10 +340,7 @@ async def upload_products(
         db.commit()
 
         return templates.TemplateResponse(
-            "products/upload.html",
-            {
-                "request": request,
-                "user": user,
+        request, "products/upload.html", {"user": user,
                 "categories": db.query(models.Category).all(),
                 "success": f"Added {added} products, updated {updated} products",
                 "errors": errors if errors else None
@@ -359,8 +349,7 @@ async def upload_products(
 
     except Exception as e:
         return templates.TemplateResponse(
-            "products/upload.html",
-            {"request": request, "user": user, "error": f"Error processing file: {str(e)}",
+        request, "products/upload.html", {"user": user, "error": f"Error processing file: {str(e)}",
              "categories": db.query(models.Category).all()}
         )
 
@@ -425,8 +414,7 @@ async def list_categories(
 ):
     categories = db.query(models.Category).order_by(models.Category.name).all()
     return templates.TemplateResponse(
-        "products/categories.html",
-        {"request": request, "categories": categories, "user": user, "is_admin": user.role == "admin"}
+        request, "products/categories.html", {"categories": categories, "user": user, "is_admin": user.role == "admin"}
     )
 
 

@@ -55,7 +55,7 @@
                 <span class="text-red-600">N{{ "{:,.0f}".format(total_withdrawal_amount) }}</span>
             </div>
             <div class="flex justify-between">
-                <span class="text-gray-500">+ Carryover:</span>
+                <span class="text-gray-500">+ Prev Day Carryover:</span>
                 <span>N{{ "{:,.0f}".format(total_cash_carryover) }}</span>
             </div>
         </div>
@@ -85,7 +85,7 @@
                 <span class="text-red-600">N{{ "{:,.0f}".format(total_deposit_amount) }}</span>
             </div>
             <div class="flex justify-between">
-                <span class="text-gray-500">+ Carryover:</span>
+                <span class="text-gray-500">+ Prev Day Carryover:</span>
                 <span>N{{ "{:,.0f}".format(total_pos_carryover) }}</span>
             </div>
         </div>
@@ -178,26 +178,6 @@
             </tr>
             {% endfor %}
         </tbody>
-        <tfoot class="bg-gray-100 font-bold">
-            <tr>
-                <td class="px-2 py-3 text-gray-800">TOTAL</td>
-                <td class="px-2 py-3 text-right text-green-600">N{{ "{:,.0f}".format(total_cash_sales) }}</td>
-                <td class="px-2 py-3 text-right text-purple-600">N{{ "{:,.0f}".format(total_pos_sales) }}</td>
-                <td class="px-2 py-3 text-right text-red-600">N{{ "{:,.0f}".format(total_pos_sales_fee) }}</td>
-                <td class="px-2 py-3 text-right text-purple-600">N{{ "{:,.0f}".format(total_withdrawal_total) }}</td>
-                <td class="px-2 py-3 text-right text-red-600">N{{ "{:,.0f}".format(total_withdrawal_amount) }}</td>
-                <td class="px-2 py-3 text-right text-green-600">N{{ "{:,.0f}".format(total_deposit_total) }}</td>
-                <td class="px-2 py-3 text-right text-green-600">N{{ "{:,.0f}".format(total_pos_banking_profit) }}</td>
-                <td class="px-2 py-3 text-right">N{{ "{:,.0f}".format(total_cash_carryover) }}</td>
-                <td class="px-2 py-3 text-right">N{{ "{:,.0f}".format(total_pos_carryover) }}</td>
-                <td class="px-2 py-3 text-right {% if grand_cash_balance >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                    N{{ "{:,.0f}".format(grand_cash_balance) }}
-                </td>
-                <td class="px-2 py-3 text-right {% if grand_pos_balance >= 0 %}text-purple-600{% else %}text-red-600{% endif %}">
-                    N{{ "{:,.0f}".format(grand_pos_balance) }}
-                </td>
-            </tr>
-        </tfoot>
     </table>
 
     {% if not report_data %}
@@ -211,19 +191,21 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
         <div class="bg-white p-3 rounded border border-green-200">
             <p class="font-medium text-green-600 mb-2">Cash Balance =</p>
-            <p class="mb-2">Cash Sales + Deposit Total - Withdrawal Amount + Carryover</p>
+            <p class="mb-2">Cash Sales + Deposit Total - Withdrawal Amount + Previous Day's Cash Carryover</p>
             <div class="text-xs text-gray-500 space-y-1">
                 <p><strong>Withdrawal:</strong> Cash Out = Amount (total - fee). Fee goes to POS.</p>
                 <p><strong>Deposit:</strong> Cash In = Total (full amount received from customer).</p>
+                <p><strong>Carryover:</strong> Uses the day before the report start date.</p>
             </div>
         </div>
         <div class="bg-white p-3 rounded border border-purple-200">
             <p class="font-medium text-purple-600 mb-2">POS Balance =</p>
-            <p class="mb-2">POS Sales - POS Fee + Withdrawal Total - Deposit Amount + Carryover</p>
+            <p class="mb-2">POS Sales - POS Fee + Withdrawal Total - Deposit Amount + Previous Day's POS Carryover</p>
             <div class="text-xs text-gray-500 space-y-1">
                 <p><strong>POS Fee:</strong> {{ pos_fee_percentage }}% of POS sales, capped at N{{ "{:,.0f}".format(pos_fee_cap) }}.</p>
                 <p><strong>Withdrawal:</strong> POS In = Total (full amount from customer's account, includes fee).</p>
                 <p><strong>Deposit:</strong> POS Out = Amount (transferred to customer's account, excludes fee).</p>
+                <p><strong>Carryover:</strong> Uses the day before the report start date.</p>
             </div>
         </div>
     </div>

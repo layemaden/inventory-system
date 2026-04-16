@@ -27,10 +27,7 @@ async def stock_overview(
     ).count()
 
     return templates.TemplateResponse(
-        "stock/overview.html",
-        {
-            "request": request,
-            "products": products,
+        request, "stock/overview.html", {"products": products,
             "user": user,
             "is_admin": user.role == "admin",
             "low_stock_count": low_stock_count
@@ -51,10 +48,7 @@ async def stock_alerts(
     ).all()
 
     return templates.TemplateResponse(
-        "stock/alerts.html",
-        {
-            "request": request,
-            "products": low_stock_products,
+        request, "stock/alerts.html", {"products": low_stock_products,
             "user": user,
             "is_admin": user.role == "admin"
         }
@@ -105,10 +99,7 @@ async def adjust_stock_page(
     ).limit(20).all()
 
     return templates.TemplateResponse(
-        "stock/adjust.html",
-        {
-            "request": request,
-            "product": product,
+        request, "stock/adjust.html", {"product": product,
             "adjustments": adjustments,
             "user": user
         }
@@ -226,10 +217,7 @@ async def stock_history(
     ).limit(100).all()
 
     return templates.TemplateResponse(
-        "stock/history.html",
-        {
-            "request": request,
-            "adjustments": adjustments,
+        request, "stock/history.html", {"adjustments": adjustments,
             "user": user
         }
     )

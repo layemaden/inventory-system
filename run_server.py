@@ -13,6 +13,11 @@ import socket
 if getattr(sys, 'frozen', False):
     # Running as compiled executable
     BASE_DIR = os.path.dirname(sys.executable)
+    # Add the _internal folder to path for PyInstaller onedir mode
+    INTERNAL_DIR = os.path.join(BASE_DIR, '_internal')
+    if os.path.exists(INTERNAL_DIR):
+        sys.path.insert(0, INTERNAL_DIR)
+    sys.path.insert(0, BASE_DIR)
     os.chdir(BASE_DIR)
     # Data is stored in AppData (survives rebuilds)
     DATA_DIR = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'InventorySystem')
@@ -80,8 +85,10 @@ def main():
 
     # Import and run uvicorn
     import uvicorn
+    from app.main import app
+
     uvicorn.run(
-        "app.main:app",
+        app,
         host="0.0.0.0",
         port=8000,
         log_level="info"

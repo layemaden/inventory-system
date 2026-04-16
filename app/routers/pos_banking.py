@@ -82,10 +82,7 @@ async def pos_banking_page(
     ).first()
 
     return templates.TemplateResponse(
-        "pos_banking/index.html",
-        {
-            "request": request,
-            "user": user,
+        request, "pos_banking/index.html", {"user": user,
             "is_admin": user.role == "admin",
             "transactions": today_transactions,
             "summary": {
@@ -206,10 +203,7 @@ async def transaction_history(
     summary = summary.first()
 
     return templates.TemplateResponse(
-        "pos_banking/history.html",
-        {
-            "request": request,
-            "user": user,
+        request, "pos_banking/history.html", {"user": user,
             "is_admin": user.role == "admin",
             "transactions": transactions,
             "start_date": start_date,
@@ -239,10 +233,7 @@ async def charge_config_page(
     ).all()
 
     return templates.TemplateResponse(
-        "pos_banking/config.html",
-        {
-            "request": request,
-            "user": user,
+        request, "pos_banking/config.html", {"user": user,
             "is_admin": True,
             "configs": configs
         }

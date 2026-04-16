@@ -28,10 +28,7 @@ async def sales_page(
     categories = db.query(models.Category).order_by(models.Category.name).all()
 
     return templates.TemplateResponse(
-        "sales/pos.html",
-        {
-            "request": request,
-            "products": products,
+        request, "sales/pos.html", {"products": products,
             "categories": categories,
             "user": user
         }
@@ -190,10 +187,7 @@ async def sales_history(
     sales = query.limit(100).all()
 
     return templates.TemplateResponse(
-        "sales/history.html",
-        {
-            "request": request,
-            "sales": sales,
+        request, "sales/history.html", {"sales": sales,
             "user": user,
             "selected_date": date_str or date.today().isoformat()
         }
@@ -212,10 +206,7 @@ async def sale_detail(
         raise HTTPException(status_code=404, detail="Sale not found")
 
     return templates.TemplateResponse(
-        "sales/detail.html",
-        {
-            "request": request,
-            "sale": sale,
+        request, "sales/detail.html", {"sale": sale,
             "user": user,
             "is_admin": user.role == "admin"
         }

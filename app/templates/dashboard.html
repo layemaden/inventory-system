@@ -41,6 +41,45 @@
     </div>
 </div>
 
+{% if is_admin and today_cash_balance != None %}
+<!-- Cash & POS Balance Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+        <div class="flex justify-between items-center">
+            <div>
+                <div class="text-gray-500 text-sm">Today's Cash Balance</div>
+                <div class="text-2xl font-bold {% if today_cash_balance >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                    N{{ "{:,.0f}".format(today_cash_balance) }}
+                </div>
+                <div class="text-xs text-gray-500 mt-1">Includes carryover + sales + POS banking</div>
+            </div>
+            <div class="bg-green-100 p-3 rounded-full">
+                <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
+        <div class="flex justify-between items-center">
+            <div>
+                <div class="text-gray-500 text-sm">Today's POS Balance</div>
+                <div class="text-2xl font-bold {% if today_pos_balance >= 0 %}text-purple-600{% else %}text-red-600{% endif %}">
+                    N{{ "{:,.0f}".format(today_pos_balance) }}
+                </div>
+                <div class="text-xs text-gray-500 mt-1">Includes carryover + sales - fees + POS banking</div>
+            </div>
+            <div class="bg-purple-100 p-3 rounded-full">
+                <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <!-- Low Stock Alerts -->
     <div class="bg-white rounded-lg shadow">

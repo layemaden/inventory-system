@@ -15,7 +15,7 @@ async def login_page(request: Request):
     user = auth.get_current_user(request, next(get_db()))
     if user:
         return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request, "login.html", {})
 
 
 @router.get("/signup", response_class=HTMLResponse)
@@ -23,7 +23,7 @@ async def signup_page(request: Request):
     user = auth.get_current_user(request, next(get_db()))
     if user:
         return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("signup.html", {"request": request})
+    return templates.TemplateResponse(request, "signup.html", {})
 
 
 @router.post("/signup")
@@ -37,28 +37,24 @@ async def signup_staff(
     # Validate PIN
     if len(pin) < 4 or len(pin) > 6:
         return templates.TemplateResponse(
-            "signup.html",
-            {"request": request, "error": "PIN must be 4-6 digits"}
+            request, "signup.html", {"error": "PIN must be 4-6 digits"}
         )
 
     if not pin.isdigit():
         return templates.TemplateResponse(
-            "signup.html",
-            {"request": request, "error": "PIN must contain only numbers"}
+            request, "signup.html", {"error": "PIN must contain only numbers"}
         )
 
     if pin != confirm_pin:
         return templates.TemplateResponse(
-            "signup.html",
-            {"request": request, "error": "PINs do not match"}
+            request, "signup.html", {"error": "PINs do not match"}
         )
 
     # Check if username already exists
     existing_user = db.query(models.User).filter(models.User.username == username).first()
     if existing_user:
         return templates.TemplateResponse(
-            "signup.html",
-            {"request": request, "error": "Username already taken"}
+            request, "signup.html", {"error": "Username already taken"}
         )
 
     # Create new staff user
@@ -94,14 +90,12 @@ async def login_staff(
 
     if not user or not user.pin:
         return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "error": "Invalid username or PIN", "show_staff": True}
+            request, "login.html", {"error": "Invalid username or PIN", "show_staff": True}
         )
 
     if not auth.verify_pin(pin, user.pin):
         return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "error": "Invalid username or PIN", "show_staff": True}
+            request, "login.html", {"error": "Invalid username or PIN", "show_staff": True}
         )
 
     token = auth.create_session_token(user.id, user.role)
@@ -127,14 +121,12 @@ async def login_with_password(
 
     if not user or not user.password:
         return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "error": "Invalid credentials", "show_admin": True}
+            request, "login.html", {"error": "Invalid credentials", "show_admin": True}
         )
 
     if not auth.verify_password(password, user.password):
         return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "error": "Invalid credentials", "show_admin": True}
+            request, "login.html", {"error": "Invalid credentials", "show_admin": True}
         )
 
     token = auth.create_session_token(user.id, user.role)

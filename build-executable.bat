@@ -41,29 +41,15 @@ if exist "build" rmdir /s /q build
 if exist "dist" rmdir /s /q dist
 echo       Cleaned!
 
-REM Build executable
+REM Ensure openpyxl and et_xmlfile are installed
 echo.
-echo [3/4] Building executable (this may take a few minutes)...
-pyinstaller --noconfirm --onedir --console ^
-    --name "InventorySystem" ^
-    --add-data "app/templates;app/templates" ^
-    --add-data "app/static;app/static" ^
-    --hidden-import "uvicorn.logging" ^
-    --hidden-import "uvicorn.loops" ^
-    --hidden-import "uvicorn.loops.auto" ^
-    --hidden-import "uvicorn.protocols" ^
-    --hidden-import "uvicorn.protocols.http" ^
-    --hidden-import "uvicorn.protocols.http.auto" ^
-    --hidden-import "uvicorn.protocols.websockets" ^
-    --hidden-import "uvicorn.protocols.websockets.auto" ^
-    --hidden-import "uvicorn.lifespan" ^
-    --hidden-import "uvicorn.lifespan.on" ^
-    --hidden-import "uvicorn.lifespan.off" ^
-    --collect-submodules "uvicorn" ^
-    --collect-submodules "fastapi" ^
-    --collect-submodules "starlette" ^
-    --collect-submodules "sqlalchemy" ^
-    run_server.py
+echo [3/5] Checking dependencies...
+pip install openpyxl et_xmlfile --quiet
+
+REM Build executable using spec file
+echo.
+echo [4/5] Building executable (this may take a few minutes)...
+pyinstaller --noconfirm InventorySystem.spec
 
 if %errorLevel% neq 0 (
     echo.
@@ -74,7 +60,7 @@ if %errorLevel% neq 0 (
 
 REM Copy necessary files to dist
 echo.
-echo [4/4] Copying additional files...
+echo [5/5] Copying additional files...
 if not exist "dist\InventorySystem\data" mkdir "dist\InventorySystem\data"
 copy ".env.example" "dist\InventorySystem\.env" >nul 2>&1
 echo       Files copied!

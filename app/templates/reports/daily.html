@@ -125,23 +125,13 @@
                 {% if is_admin %}
                 <td class="px-3 py-4 text-right bg-green-50">
                     <span class="cash-carryover-display">N{{ "{:,.0f}".format(row.cash_carryover) }}</span>
-                    <input type="number" class="cash-carryover-input hidden w-20 text-right border rounded px-2 py-1"
-                           value="{{ row.cash_carryover }}" step="0.01">
                 </td>
                 <td class="px-3 py-4 text-right bg-purple-50">
                     <span class="pos-carryover-display">N{{ "{:,.0f}".format(row.pos_carryover) }}</span>
-                    <input type="number" class="pos-carryover-input hidden w-20 text-right border rounded px-2 py-1"
-                           value="{{ row.pos_carryover }}" step="0.01">
                 </td>
                 <td class="px-3 py-4 text-center">
-                    <button onclick="editCarryover('{{ row.date }}')" class="edit-btn text-blue-600 hover:text-blue-800 text-sm">
+                    <button onclick="editCarryover('{{ row.date }}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
                         Edit
-                    </button>
-                    <button onclick="saveCarryover('{{ row.date }}')" class="save-btn hidden text-green-600 hover:text-green-800 text-sm">
-                        Save
-                    </button>
-                    <button onclick="cancelEdit('{{ row.date }}')" class="cancel-btn hidden text-gray-600 hover:text-gray-800 text-sm ml-2">
-                        Cancel
                     </button>
                 </td>
                 {% endif %}
@@ -155,55 +145,214 @@
     {% endif %}
 </div>
 
+<!-- Carryover Edit Modal -->
+{% if is_admin %}
+<div id="carryover-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-bold text-gray-800">Edit Carryover</h3>
+            <button onclick="closeCarryoverModal()" class="text-gray-500 hover:text-gray-700">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="text-sm text-gray-600 mb-4">
+            Date: <span id="modal-date" class="font-semibold"></span>
+        </div>
+
+        <!-- Suggested Values Info -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+            <div class="text-sm font-medium text-blue-800 mb-2">Suggested Carryover (from previous day)</div>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+                <div class="text-green-700">
+                    <span class="text-gray-600">Cash:</span>
+                    <span id="suggested-cash-display" class="font-semibold">N0</span>
+                </div>
+                <div class="text-purple-700">
+                    <span class="text-gray-600">POS:</span>
+                    <span id="suggested-pos-display" class="font-semibold">N0</span>
+                </div>
+            </div>
+            <button onclick="useSuggestedValues()" class="mt-2 text-xs text-blue-600 hover:text-blue-800 underline">
+                Use suggested values
+            </button>
+        </div>
+
+        <!-- Breakdown Details (collapsible) -->
+        <details class="mb-4">
+            <summary class="text-sm text-gray-500 cursor-pointer hover:text-gray-700">View calculation breakdown</summary>
+            <div id="breakdown-details" class="mt-2 bg-gray-50 rounded p-3 text-xs">
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+                    <div class="font-medium text-gray-700 col-span-2 border-b pb-1 mb-1">Cash Calculation:</div>
+                    <div>Previous C/O:</div><div id="bd-prev-cash-co" class="text-right">N0</div>
+                    <div>+ Cash Sales:</div><div id="bd-cash-sales" class="text-right">N0</div>
+                    <div>+ Deposits (cash in):</div><div id="bd-deposit-total" class="text-right">N0</div>
+                    <div>- Withdrawals (cash out):</div><div id="bd-withdrawal-amount" class="text-right">N0</div>
+
+                    <div class="font-medium text-gray-700 col-span-2 border-b pb-1 mb-1 mt-2">POS Calculation:</div>
+                    <div>Previous C/O:</div><div id="bd-prev-pos-co" class="text-right">N0</div>
+                    <div>+ POS Sales:</div><div id="bd-pos-sales" class="text-right">N0</div>
+                    <div>- POS Fees:</div><div id="bd-pos-fee" class="text-right">N0</div>
+                    <div>+ Withdrawals (POS in):</div><div id="bd-withdrawal-total" class="text-right">N0</div>
+                    <div>- Deposits (POS out):</div><div id="bd-deposit-amount" class="text-right">N0</div>
+                </div>
+            </div>
+        </details>
+
+        <!-- Editable Values -->
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Cash Carryover</label>
+                <input type="number" id="modal-cash-carryover" step="0.01"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <div id="cash-diff" class="text-xs mt-1 hidden"></div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">POS Carryover</label>
+                <input type="number" id="modal-pos-carryover" step="0.01"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <div id="pos-diff" class="text-xs mt-1 hidden"></div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional - explain discrepancy)</label>
+                <textarea id="modal-notes" rows="2"
+                          class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="e.g., Missing N500, counted twice yesterday..."></textarea>
+            </div>
+        </div>
+
+        <div class="flex gap-3 mt-6">
+            <button onclick="closeCarryoverModal()" class="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg font-medium hover:bg-gray-300">
+                Cancel
+            </button>
+            <button onclick="saveCarryoverFromModal()" class="flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700">
+                Save
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block scripts %}
 {% if is_admin %}
 <script>
-function editCarryover(date) {
-    const row = document.querySelector(`tr[data-date="${date}"]`);
-    row.querySelector('.cash-carryover-display').classList.add('hidden');
-    row.querySelector('.pos-carryover-display').classList.add('hidden');
-    row.querySelector('.cash-carryover-input').classList.remove('hidden');
-    row.querySelector('.pos-carryover-input').classList.remove('hidden');
-    row.querySelector('.edit-btn').classList.add('hidden');
-    row.querySelector('.save-btn').classList.remove('hidden');
-    row.querySelector('.cancel-btn').classList.remove('hidden');
+let currentEditDate = null;
+let suggestedCash = 0;
+let suggestedPos = 0;
+
+async function editCarryover(date) {
+    currentEditDate = date;
+    document.getElementById('modal-date').textContent = date;
+
+    // Fetch carryover data with suggested values
+    try {
+        const response = await fetch(`/reports/carryover/${date}`);
+        const data = await response.json();
+
+        suggestedCash = data.suggested_cash || 0;
+        suggestedPos = data.suggested_pos || 0;
+
+        // Display suggested values
+        document.getElementById('suggested-cash-display').textContent = 'N' + suggestedCash.toLocaleString();
+        document.getElementById('suggested-pos-display').textContent = 'N' + suggestedPos.toLocaleString();
+
+        // Set current values (use suggested if no saved value)
+        document.getElementById('modal-cash-carryover').value = data.cash_carryover || suggestedCash;
+        document.getElementById('modal-pos-carryover').value = data.pos_carryover || suggestedPos;
+        document.getElementById('modal-notes').value = data.notes || '';
+
+        // Display breakdown
+        const bd = data.breakdown || {};
+        document.getElementById('bd-prev-cash-co').textContent = 'N' + (bd.prev_cash_carryover || 0).toLocaleString();
+        document.getElementById('bd-cash-sales').textContent = 'N' + (bd.prev_cash_sales || 0).toLocaleString();
+        document.getElementById('bd-deposit-total').textContent = 'N' + (bd.deposit_total || 0).toLocaleString();
+        document.getElementById('bd-withdrawal-amount').textContent = 'N' + (bd.withdrawal_amount || 0).toLocaleString();
+        document.getElementById('bd-prev-pos-co').textContent = 'N' + (bd.prev_pos_carryover || 0).toLocaleString();
+        document.getElementById('bd-pos-sales').textContent = 'N' + (bd.prev_pos_sales || 0).toLocaleString();
+        document.getElementById('bd-pos-fee').textContent = 'N' + (bd.prev_pos_fee || 0).toLocaleString();
+        document.getElementById('bd-withdrawal-total').textContent = 'N' + (bd.withdrawal_total || 0).toLocaleString();
+        document.getElementById('bd-deposit-amount').textContent = 'N' + (bd.deposit_amount || 0).toLocaleString();
+
+        // Show difference indicators
+        updateDiffIndicators();
+
+        // Show modal
+        document.getElementById('carryover-modal').classList.remove('hidden');
+    } catch (error) {
+        showAlert('Error loading carryover data: ' + error.message, 'Error', 'error');
+    }
 }
 
-function cancelEdit(date) {
-    const row = document.querySelector(`tr[data-date="${date}"]`);
-    row.querySelector('.cash-carryover-display').classList.remove('hidden');
-    row.querySelector('.pos-carryover-display').classList.remove('hidden');
-    row.querySelector('.cash-carryover-input').classList.add('hidden');
-    row.querySelector('.pos-carryover-input').classList.add('hidden');
-    row.querySelector('.edit-btn').classList.remove('hidden');
-    row.querySelector('.save-btn').classList.add('hidden');
-    row.querySelector('.cancel-btn').classList.add('hidden');
+function updateDiffIndicators() {
+    const cashInput = parseFloat(document.getElementById('modal-cash-carryover').value) || 0;
+    const posInput = parseFloat(document.getElementById('modal-pos-carryover').value) || 0;
+
+    const cashDiff = cashInput - suggestedCash;
+    const posDiff = posInput - suggestedPos;
+
+    const cashDiffEl = document.getElementById('cash-diff');
+    const posDiffEl = document.getElementById('pos-diff');
+
+    if (Math.abs(cashDiff) > 0.01) {
+        cashDiffEl.textContent = (cashDiff > 0 ? '+' : '') + 'N' + cashDiff.toLocaleString() + ' from suggested';
+        cashDiffEl.className = 'text-xs mt-1 ' + (cashDiff > 0 ? 'text-green-600' : 'text-red-600');
+        cashDiffEl.classList.remove('hidden');
+    } else {
+        cashDiffEl.classList.add('hidden');
+    }
+
+    if (Math.abs(posDiff) > 0.01) {
+        posDiffEl.textContent = (posDiff > 0 ? '+' : '') + 'N' + posDiff.toLocaleString() + ' from suggested';
+        posDiffEl.className = 'text-xs mt-1 ' + (posDiff > 0 ? 'text-green-600' : 'text-red-600');
+        posDiffEl.classList.remove('hidden');
+    } else {
+        posDiffEl.classList.add('hidden');
+    }
 }
 
-async function saveCarryover(date) {
-    const row = document.querySelector(`tr[data-date="${date}"]`);
-    const cashCarryover = parseFloat(row.querySelector('.cash-carryover-input').value) || 0;
-    const posCarryover = parseFloat(row.querySelector('.pos-carryover-input').value) || 0;
+function useSuggestedValues() {
+    document.getElementById('modal-cash-carryover').value = suggestedCash;
+    document.getElementById('modal-pos-carryover').value = suggestedPos;
+    updateDiffIndicators();
+}
+
+function closeCarryoverModal() {
+    document.getElementById('carryover-modal').classList.add('hidden');
+    currentEditDate = null;
+}
+
+async function saveCarryoverFromModal() {
+    if (!currentEditDate) return;
+
+    const cashCarryover = parseFloat(document.getElementById('modal-cash-carryover').value) || 0;
+    const posCarryover = parseFloat(document.getElementById('modal-pos-carryover').value) || 0;
+    const notes = document.getElementById('modal-notes').value;
 
     try {
-        const response = await fetch(`/reports/carryover/${date}`, {
+        const response = await fetch(`/reports/carryover/${currentEditDate}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 cash_carryover: cashCarryover,
-                pos_carryover: posCarryover
+                pos_carryover: posCarryover,
+                notes: notes
             })
         });
 
         const data = await response.json();
 
         if (data.success) {
-            // Update display values
-            row.querySelector('.cash-carryover-display').textContent = 'N' + cashCarryover.toLocaleString();
-            row.querySelector('.pos-carryover-display').textContent = 'N' + posCarryover.toLocaleString();
-            cancelEdit(date);
+            // Update display values in table
+            const row = document.querySelector(`tr[data-date="${currentEditDate}"]`);
+            if (row) {
+                row.querySelector('.cash-carryover-display').textContent = 'N' + cashCarryover.toLocaleString();
+                row.querySelector('.pos-carryover-display').textContent = 'N' + posCarryover.toLocaleString();
+            }
+            closeCarryoverModal();
             showAlert('Carryover saved successfully', 'Success', 'success');
         } else {
             showAlert('Failed to save carryover', 'Error', 'error');
@@ -212,6 +361,17 @@ async function saveCarryover(date) {
         showAlert('Error saving carryover: ' + error.message, 'Error', 'error');
     }
 }
+
+// Update diff indicators when input changes
+document.getElementById('modal-cash-carryover')?.addEventListener('input', updateDiffIndicators);
+document.getElementById('modal-pos-carryover')?.addEventListener('input', updateDiffIndicators);
+
+// Close modal on escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && !document.getElementById('carryover-modal').classList.contains('hidden')) {
+        closeCarryoverModal();
+    }
+});
 </script>
 {% endif %}
 {% endblock %}

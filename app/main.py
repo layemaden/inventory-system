@@ -4,8 +4,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from sqlalchemy import func, text
-from datetime import date
+from sqlalchemy import func, text, case
+from datetime import date, timedelta
 
 from .database import engine, get_db, Base
 from .config import settings
@@ -107,7 +107,30 @@ os.makedirs(settings.STATIC_DIR, exist_ok=True)
 app.mount("/static", StaticFiles(directory=settings.STATIC_DIR), name="static")
 
 # Templates
+import sys
 templates = Jinja2Templates(directory=settings.TEMPLATES_DIR)
+
+# Fix Jinja2 caching bug with PyInstaller
+if getattr(sys, 'frozen', False):
+    # Replace the LRU cache with a simple dict that won't cause unhashable errors
+    class SimpleCache:
+        def __init__(self):
+            self._cache = {}
+        def get(self, key, default=None):
+            return self._cache.get(str(key), default)
+        def __setitem__(self, key, value):
+            self._cache[str(key)] = value
+        def __getitem__(self, key):
+            return self._cache[str(key)]
+        def __contains__(self, key):
+            return str(key) in self._cache
+        def clear(self):
+            self._cache.clear()
+        def setdefault(self, key, default=None):
+            return self._cache.setdefault(str(key), default)
+
+    templates.env.cache = SimpleCache()
+    templates.env.auto_reload = False
 
 # Include routers
 app.include_router(auth_router.router)
@@ -177,6 +200,9 @@ async def dashboard(
 
     # Today's profit (admin only)
     today_profit = None
+    today_cash_balance = None
+    today_pos_balance = None
+
     if user.role == "admin":
         profit_data = db.query(
             func.sum(models.SaleItem.unit_price * models.SaleItem.quantity).label("revenue"),
@@ -188,16 +214,90 @@ async def dashboard(
         if profit_data.revenue:
             today_profit = (profit_data.revenue or 0) - (profit_data.cost or 0)
 
+        # Calculate today's cash and POS balance with carryover
+        # Get yesterday's carryover (suggested = previous balance)
+        yesterday = today - timedelta(days=1)
+        yesterday_str = yesterday.isoformat()
+
+        # Get yesterday's saved carryover or calculate suggested
+        yesterday_carryover = db.query(models.DailyCarryover).filter(
+            models.DailyCarryover.date == yesterday_str
+        ).first()
+
+        if yesterday_carryover:
+            prev_cash_carryover = yesterday_carryover.cash_carryover or 0
+            prev_pos_carryover = yesterday_carryover.pos_carryover or 0
+        else:
+            # No saved carryover, use 0 as starting point
+            prev_cash_carryover = 0
+            prev_pos_carryover = 0
+
+        # Get today's sales by payment method
+        today_sales_by_method = db.query(
+            func.sum(case((models.Sale.payment_method == 'cash', models.Sale.total_amount), else_=0)).label("cash_sales"),
+            func.sum(case((models.Sale.payment_method == 'pos', models.Sale.total_amount), else_=0)).label("pos_sales")
+        ).filter(
+            func.date(models.Sale.created_at) == today
+        ).first()
+
+        today_cash_sales = today_sales_by_method.cash_sales or 0 if today_sales_by_method else 0
+        today_pos_sales = today_sales_by_method.pos_sales or 0 if today_sales_by_method else 0
+
+        # Get today's POS banking transactions
+        today_pos_banking = db.query(
+            func.sum(case((models.POSTransaction.transaction_type == 'withdrawal', models.POSTransaction.total), else_=0)).label("withdrawal_total"),
+            func.sum(case((models.POSTransaction.transaction_type == 'withdrawal', models.POSTransaction.amount), else_=0)).label("withdrawal_amount"),
+            func.sum(case((models.POSTransaction.transaction_type == 'deposit', models.POSTransaction.total), else_=0)).label("deposit_total"),
+            func.sum(case((models.POSTransaction.transaction_type == 'deposit', models.POSTransaction.amount), else_=0)).label("deposit_amount")
+        ).filter(
+            func.date(models.POSTransaction.created_at) == today
+        ).first()
+
+        withdrawal_total = today_pos_banking.withdrawal_total or 0 if today_pos_banking else 0
+        withdrawal_amount = today_pos_banking.withdrawal_amount or 0 if today_pos_banking else 0
+        deposit_total = today_pos_banking.deposit_total or 0 if today_pos_banking else 0
+        deposit_amount = today_pos_banking.deposit_amount or 0 if today_pos_banking else 0
+
+        # Calculate POS fee for today's POS sales
+        pos_fee_setting = db.query(models.SystemSettings).filter(
+            models.SystemSettings.key == "pos_fee_percentage"
+        ).first()
+        pos_fee_cap_setting = db.query(models.SystemSettings).filter(
+            models.SystemSettings.key == "pos_fee_cap"
+        ).first()
+        pos_fee_percentage = float(pos_fee_setting.value) if pos_fee_setting else 0
+        pos_fee_cap = float(pos_fee_cap_setting.value) if pos_fee_cap_setting else 100
+
+        # Get individual POS sales to calculate fee per transaction
+        today_pos_sales_list = db.query(models.Sale.total_amount).filter(
+            func.date(models.Sale.created_at) == today,
+            models.Sale.payment_method == 'pos'
+        ).all()
+
+        today_pos_fee = sum(
+            min(sale.total_amount * (pos_fee_percentage / 100), pos_fee_cap)
+            for sale in today_pos_sales_list
+        ) if pos_fee_percentage > 0 else 0
+
+        # Calculate balances
+        # Cash: Carryover + Cash Sales + Deposits (cash in) - Withdrawals (cash out)
+        today_cash_balance = prev_cash_carryover + today_cash_sales + deposit_total - withdrawal_amount
+
+        # POS: Carryover + POS Sales - POS Fee + Withdrawals (POS in) - Deposits (POS out)
+        today_pos_balance = prev_pos_carryover + today_pos_sales - today_pos_fee + withdrawal_total - deposit_amount
+
     return templates.TemplateResponse(
+        request,
         "dashboard.html",
         {
-            "request": request,
             "user": user,
             "is_admin": user.role == "admin",
             "today_sales_count": today_sales.count or 0,
             "today_sales_total": today_sales.total or 0,
             "today_items_sold": today_items,
             "today_profit": today_profit,
+            "today_cash_balance": today_cash_balance,
+            "today_pos_balance": today_pos_balance,
             "low_stock": low_stock,
             "recent_sales": recent_sales
         }
@@ -213,8 +313,9 @@ async def list_users(
 ):
     users = db.query(models.User).order_by(models.User.username).all()
     return templates.TemplateResponse(
+        request,
         "users.html",
-        {"request": request, "users": users, "user": user}
+        {"users": users, "user": user}
     )
 
 

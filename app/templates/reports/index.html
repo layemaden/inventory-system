@@ -14,6 +14,14 @@
     </a>
 
     {% if is_admin %}
+    <!-- Today's Summary -->
+    <a href="/reports/today-summary" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+        <div class="text-green-600 text-3xl mb-4">&#128197;</div>
+        <h3 class="font-bold text-lg text-gray-800">Today's Summary</h3>
+        <p class="text-gray-600 mt-2">Today's cash & POS balance with previous day carryover</p>
+        <span class="inline-block mt-2 text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">Admin Only</span>
+    </a>
+
     <!-- Cash & POS Summary -->
     <a href="/reports/cash-pos-summary" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
         <div class="text-blue-600 text-3xl mb-4">&#128181;</div>
