@@ -3,7 +3,10 @@
     "allow": [
       "Bash(git fetch:*)",
       "Bash(python3 -m py_compile app/main.py)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(python -c \"from app.main import app; print\\('App loaded successfully'\\)\")",
+      "Bash(python3 -c \"from app.main import app; print\\('App loaded successfully'\\)\")",
+      "Bash(python3 *)"
     ]
   }
 }

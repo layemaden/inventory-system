@@ -93,7 +93,9 @@ class Sale(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     total_amount = Column(Float, nullable=False)
-    payment_method = Column(String(10), default="cash")  # "cash" or "pos"
+    payment_method = Column(String(10), default="cash")  # "cash", "pos", or "split"
+    cash_amount = Column(Float, default=0)  # Amount paid in cash (for split payments)
+    pos_amount = Column(Float, default=0)   # Amount paid via POS (for split payments)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="sales")
@@ -186,3 +188,49 @@ class SystemSettings(Base):
     value = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class PendingCart(Base):
+    """Held/pending carts that can be resumed later"""
+    __tablename__ = "pending_carts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    customer_note = Column(String(200), nullable=True)  # Optional note like customer name
+    total_amount = Column(Float, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User")
+    items = relationship("PendingCartItem", back_populates="cart", cascade="all, delete-orphan")
+
+
+class PendingCartItem(Base):
+    """Items in a pending cart"""
+    __tablename__ = "pending_cart_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cart_id = Column(Integer, ForeignKey("pending_carts.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity = Column(Float, nullable=False)
+    unit_price = Column(Float, nullable=False)
+    sale_type = Column(String(10), default="unit")  # "unit" or "pack"
+    pack_id = Column(Integer, ForeignKey("product_packs.id"), nullable=True)
+    pack_size = Column(Integer, default=1)
+
+    cart = relationship("PendingCart", back_populates="items")
+    product = relationship("Product")
+    pack = relationship("ProductPack")
+
+
+class BalanceWithdrawal(Base):
+    """Track withdrawals from cash and POS balance"""
+    __tablename__ = "balance_withdrawals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    withdrawal_type = Column(String(10), nullable=False)  # "cash" or "pos"
+    amount = Column(Float, nullable=False)
+    reason = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User")

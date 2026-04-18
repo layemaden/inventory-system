@@ -87,7 +87,9 @@ async def complete_sale(
 ):
     body = await request.json()
     items = body.get("items", [])
-    payment_method = body.get("payment_method", "cash")  # "cash" or "pos"
+    payment_method = body.get("payment_method", "cash")  # "cash", "pos", or "split"
+    cash_amount = body.get("cash_amount", 0) or 0
+    pos_amount = body.get("pos_amount", 0) or 0
 
     if not items:
         raise HTTPException(status_code=400, detail="No items in cart")
@@ -159,11 +161,27 @@ async def complete_sale(
             "units_to_deduct": units_to_deduct
         })
 
+    # Handle split payment validation
+    if payment_method == "split":
+        if cash_amount + pos_amount < total_amount:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Split payment total (N{cash_amount + pos_amount:,.0f}) is less than sale total (N{total_amount:,.0f})"
+            )
+    elif payment_method == "cash":
+        cash_amount = total_amount
+        pos_amount = 0
+    else:  # pos
+        cash_amount = 0
+        pos_amount = total_amount
+
     # Create sale
     sale = models.Sale(
         user_id=user.id,
         total_amount=total_amount,
-        payment_method=payment_method
+        payment_method=payment_method,
+        cash_amount=cash_amount,
+        pos_amount=pos_amount
     )
     db.add(sale)
     db.flush()
@@ -262,3 +280,140 @@ async def delete_sale(
     db.commit()
 
     return RedirectResponse(url="/sales/history", status_code=302)
+
+
+# ==================== PENDING CART (HOLD/RESUME) ====================
+
+@router.post("/cart/hold", response_class=JSONResponse)
+async def hold_cart(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_login)
+):
+    """Hold the current cart for later"""
+    body = await request.json()
+    items = body.get("items", [])
+    customer_note = body.get("customer_note", "")
+
+    if not items:
+        raise HTTPException(status_code=400, detail="No items to hold")
+
+    # Calculate total
+    total_amount = sum(item.get("price", 0) * item.get("quantity", 0) for item in items)
+
+    # Create pending cart
+    pending_cart = models.PendingCart(
+        user_id=user.id,
+        customer_note=customer_note[:200] if customer_note else None,
+        total_amount=total_amount
+    )
+    db.add(pending_cart)
+    db.flush()
+
+    # Add items to pending cart
+    for item in items:
+        cart_item = models.PendingCartItem(
+            cart_id=pending_cart.id,
+            product_id=item["product_id"],
+            quantity=item["quantity"],
+            unit_price=item["price"],
+            sale_type=item.get("sale_type", "unit"),
+            pack_id=item.get("pack_id"),
+            pack_size=item.get("pack_size", 1)
+        )
+        db.add(cart_item)
+
+    db.commit()
+
+    return {
+        "success": True,
+        "cart_id": pending_cart.id,
+        "message": "Cart held successfully"
+    }
+
+
+@router.get("/cart/pending", response_class=JSONResponse)
+async def get_pending_carts(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_login)
+):
+    """Get all pending carts"""
+    carts = db.query(models.PendingCart).order_by(
+        models.PendingCart.created_at.desc()
+    ).all()
+
+    return [
+        {
+            "id": cart.id,
+            "user": cart.user.username,
+            "customer_note": cart.customer_note,
+            "total_amount": cart.total_amount,
+            "item_count": len(cart.items),
+            "created_at": cart.created_at.strftime("%Y-%m-%d %H:%M")
+        }
+        for cart in carts
+    ]
+
+
+@router.get("/cart/pending/{cart_id}", response_class=JSONResponse)
+async def get_pending_cart(
+    cart_id: int,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_login)
+):
+    """Get a specific pending cart with its items"""
+    cart = db.query(models.PendingCart).filter(
+        models.PendingCart.id == cart_id
+    ).first()
+
+    if not cart:
+        raise HTTPException(status_code=404, detail="Pending cart not found")
+
+    items = []
+    for item in cart.items:
+        product = item.product
+        pack_name = None
+        if item.pack_id and item.pack:
+            pack_name = item.pack.name
+
+        items.append({
+            "product_id": item.product_id,
+            "name": product.name,
+            "quantity": item.quantity,
+            "price": item.unit_price,
+            "sale_type": item.sale_type,
+            "pack_id": item.pack_id,
+            "pack_name": pack_name,
+            "pack_size": item.pack_size,
+            "unit": product.unit,
+            "current_stock": product.shop_quantity
+        })
+
+    return {
+        "id": cart.id,
+        "user": cart.user.username,
+        "customer_note": cart.customer_note,
+        "total_amount": cart.total_amount,
+        "created_at": cart.created_at.strftime("%Y-%m-%d %H:%M"),
+        "items": items
+    }
+
+
+@router.delete("/cart/pending/{cart_id}", response_class=JSONResponse)
+async def delete_pending_cart(
+    cart_id: int,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_login)
+):
+    """Delete a pending cart"""
+    cart = db.query(models.PendingCart).filter(
+        models.PendingCart.id == cart_id
+    ).first()
+
+    if not cart:
+        raise HTTPException(status_code=404, detail="Pending cart not found")
+
+    db.delete(cart)
+    db.commit()
+
+    return {"success": True, "message": "Pending cart deleted"}

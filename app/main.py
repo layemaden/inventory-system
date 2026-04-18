@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from .database import engine, get_db, Base
 from .config import settings
 from . import models, auth
-from .routers import auth as auth_router, products, sales, reports, stock, pos_banking
+from .routers import auth as auth_router, products, sales, reports, stock, pos_banking, balance
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -50,6 +50,14 @@ def run_migrations():
         if 'payment_method' not in columns:
             conn.execute(text("ALTER TABLE sales ADD COLUMN payment_method VARCHAR(10) DEFAULT 'cash'"))
             print("Added payment_method column to sales")
+
+        if 'cash_amount' not in columns:
+            conn.execute(text("ALTER TABLE sales ADD COLUMN cash_amount FLOAT DEFAULT 0"))
+            print("Added cash_amount column to sales")
+
+        if 'pos_amount' not in columns:
+            conn.execute(text("ALTER TABLE sales ADD COLUMN pos_amount FLOAT DEFAULT 0"))
+            print("Added pos_amount column to sales")
 
         # Create daily_carryover table if it doesn't exist
         conn.execute(text("""
@@ -116,6 +124,48 @@ def run_migrations():
             conn.execute(text("ALTER TABLE sale_items ADD COLUMN pack_id INTEGER"))
             print("Added pack_id column to sale_items")
 
+        # Create pending_carts table for hold/resume functionality
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS pending_carts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                customer_note VARCHAR(200),
+                total_amount FLOAT DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """))
+
+        # Create pending_cart_items table
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS pending_cart_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cart_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL,
+                quantity FLOAT NOT NULL,
+                unit_price FLOAT NOT NULL,
+                sale_type VARCHAR(10) DEFAULT 'unit',
+                pack_id INTEGER,
+                pack_size INTEGER DEFAULT 1,
+                FOREIGN KEY (cart_id) REFERENCES pending_carts(id),
+                FOREIGN KEY (product_id) REFERENCES products(id),
+                FOREIGN KEY (pack_id) REFERENCES product_packs(id)
+            )
+        """))
+
+        # Create balance_withdrawals table for tracking cash/POS withdrawals
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS balance_withdrawals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                withdrawal_type VARCHAR(10) NOT NULL,
+                amount FLOAT NOT NULL,
+                reason TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """))
+
         conn.commit()
 
 run_migrations()
@@ -159,6 +209,7 @@ app.include_router(sales.router)
 app.include_router(reports.router)
 app.include_router(stock.router)
 app.include_router(pos_banking.router)
+app.include_router(balance.router)
 
 
 def init_db(db: Session):
@@ -299,12 +350,23 @@ async def dashboard(
             for sale in today_pos_sales_list
         ) if pos_fee_percentage > 0 else 0
 
-        # Calculate balances
-        # Cash: Carryover + Cash Sales + Deposits (cash in) - Withdrawals (cash out)
-        today_cash_balance = prev_cash_carryover + today_cash_sales + deposit_total - withdrawal_amount
+        # Get today's balance withdrawals
+        today_balance_withdrawals = db.query(
+            func.sum(case((models.BalanceWithdrawal.withdrawal_type == 'cash', models.BalanceWithdrawal.amount), else_=0)).label("cash_withdrawals"),
+            func.sum(case((models.BalanceWithdrawal.withdrawal_type == 'pos', models.BalanceWithdrawal.amount), else_=0)).label("pos_withdrawals")
+        ).filter(
+            func.date(models.BalanceWithdrawal.created_at) == today
+        ).first()
 
-        # POS: Carryover + POS Sales - POS Fee + Withdrawals (POS in) - Deposits (POS out)
-        today_pos_balance = prev_pos_carryover + today_pos_sales - today_pos_fee + withdrawal_total - deposit_amount
+        cash_balance_withdrawals = today_balance_withdrawals.cash_withdrawals or 0 if today_balance_withdrawals else 0
+        pos_balance_withdrawals = today_balance_withdrawals.pos_withdrawals or 0 if today_balance_withdrawals else 0
+
+        # Calculate balances
+        # Cash: Carryover + Cash Sales + Deposits (cash in) - Withdrawals (cash out) - Balance Withdrawals
+        today_cash_balance = prev_cash_carryover + today_cash_sales + deposit_total - withdrawal_amount - cash_balance_withdrawals
+
+        # POS: Carryover + POS Sales - POS Fee + Withdrawals (POS in) - Deposits (POS out) - Balance Withdrawals
+        today_pos_balance = prev_pos_carryover + today_pos_sales - today_pos_fee + withdrawal_total - deposit_amount - pos_balance_withdrawals
 
     return templates.TemplateResponse(
         request,

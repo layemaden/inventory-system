@@ -433,12 +433,23 @@ def calculate_suggested_carryover(db: Session, date_str: str) -> dict:
     deposit_total = prev_pos_banking.deposit_total or 0 if prev_pos_banking else 0
     deposit_amount = prev_pos_banking.deposit_amount or 0 if prev_pos_banking else 0
 
-    # Calculate suggested carryover
-    # Cash: Previous carryover + Cash sales + Deposit (cash received) - Withdrawal (cash given out)
-    suggested_cash = prev_cash_carryover + prev_cash_sales + deposit_total - withdrawal_amount
+    # Get previous day's balance withdrawals
+    prev_balance_withdrawals = db.query(
+        func.sum(case((models.BalanceWithdrawal.withdrawal_type == 'cash', models.BalanceWithdrawal.amount), else_=0)).label("cash_withdrawals"),
+        func.sum(case((models.BalanceWithdrawal.withdrawal_type == 'pos', models.BalanceWithdrawal.amount), else_=0)).label("pos_withdrawals")
+    ).filter(
+        func.date(models.BalanceWithdrawal.created_at) == prev_date
+    ).first()
 
-    # POS: Previous carryover + POS sales - POS fee + Withdrawal (from customer account) - Deposit (to customer account)
-    suggested_pos = prev_pos_carryover + prev_pos_sales - prev_pos_fee + withdrawal_total - deposit_amount
+    cash_balance_withdrawals = prev_balance_withdrawals.cash_withdrawals or 0 if prev_balance_withdrawals else 0
+    pos_balance_withdrawals = prev_balance_withdrawals.pos_withdrawals or 0 if prev_balance_withdrawals else 0
+
+    # Calculate suggested carryover
+    # Cash: Previous carryover + Cash sales + Deposit (cash received) - Withdrawal (cash given out) - Balance withdrawals
+    suggested_cash = prev_cash_carryover + prev_cash_sales + deposit_total - withdrawal_amount - cash_balance_withdrawals
+
+    # POS: Previous carryover + POS sales - POS fee + Withdrawal (from customer account) - Deposit (to customer account) - Balance withdrawals
+    suggested_pos = prev_pos_carryover + prev_pos_sales - prev_pos_fee + withdrawal_total - deposit_amount - pos_balance_withdrawals
 
     return {
         "suggested_cash": suggested_cash,
@@ -452,7 +463,9 @@ def calculate_suggested_carryover(db: Session, date_str: str) -> dict:
             "withdrawal_total": withdrawal_total,
             "withdrawal_amount": withdrawal_amount,
             "deposit_total": deposit_total,
-            "deposit_amount": deposit_amount
+            "deposit_amount": deposit_amount,
+            "cash_balance_withdrawals": cash_balance_withdrawals,
+            "pos_balance_withdrawals": pos_balance_withdrawals
         }
     }
 
@@ -614,11 +627,26 @@ async def today_summary(
     prev_cash_carryover = yesterday_carryover.cash_carryover if yesterday_carryover else 0
     prev_pos_carryover = yesterday_carryover.pos_carryover if yesterday_carryover else 0
 
+    # Get today's balance withdrawals
+    balance_withdrawal_stats = db.query(
+        func.sum(case((models.BalanceWithdrawal.withdrawal_type == 'cash', models.BalanceWithdrawal.amount), else_=0)).label("cash_withdrawals"),
+        func.sum(case((models.BalanceWithdrawal.withdrawal_type == 'pos', models.BalanceWithdrawal.amount), else_=0)).label("pos_withdrawals"),
+        func.count(case((models.BalanceWithdrawal.withdrawal_type == 'cash', 1), else_=None)).label("cash_withdrawal_count"),
+        func.count(case((models.BalanceWithdrawal.withdrawal_type == 'pos', 1), else_=None)).label("pos_withdrawal_count")
+    ).filter(
+        func.date(models.BalanceWithdrawal.created_at) == today
+    ).first()
+
+    cash_balance_withdrawals = balance_withdrawal_stats.cash_withdrawals or 0
+    pos_balance_withdrawals = balance_withdrawal_stats.pos_withdrawals or 0
+    cash_withdrawal_count = balance_withdrawal_stats.cash_withdrawal_count or 0
+    pos_withdrawal_count = balance_withdrawal_stats.pos_withdrawal_count or 0
+
     # Calculate balances
-    # Cash: Cash Sales + Deposit Total (cash received) - Withdrawal Amount (cash given) + Previous Day's Cash Carryover
-    cash_balance = cash_sales + deposit_total - withdrawal_amount + prev_cash_carryover
-    # POS: POS Sales - POS Fee + Withdrawal Total (from customer) - Deposit Amount (to customer) + Previous Day's POS Carryover
-    pos_balance = pos_sales - pos_fee + withdrawal_total - deposit_amount + prev_pos_carryover
+    # Cash: Cash Sales + Deposit Total (cash received) - Withdrawal Amount (cash given) + Previous Day's Cash Carryover - Balance Withdrawals
+    cash_balance = cash_sales + deposit_total - withdrawal_amount + prev_cash_carryover - cash_balance_withdrawals
+    # POS: POS Sales - POS Fee + Withdrawal Total (from customer) - Deposit Amount (to customer) + Previous Day's POS Carryover - Balance Withdrawals
+    pos_balance = pos_sales - pos_fee + withdrawal_total - deposit_amount + prev_pos_carryover - pos_balance_withdrawals
 
     total_sales = cash_sales + pos_sales
 
@@ -641,6 +669,10 @@ async def today_summary(
             "deposit_count": deposit_count,
             "prev_cash_carryover": prev_cash_carryover,
             "prev_pos_carryover": prev_pos_carryover,
+            "cash_balance_withdrawals": cash_balance_withdrawals,
+            "pos_balance_withdrawals": pos_balance_withdrawals,
+            "cash_withdrawal_count": cash_withdrawal_count,
+            "pos_withdrawal_count": pos_withdrawal_count,
             "cash_balance": cash_balance,
             "pos_balance": pos_balance,
             "total_sales": total_sales,
@@ -1058,9 +1090,28 @@ async def cash_pos_summary(
     ).all()
     carryover_by_date = {c.date: c for c in carryovers}
 
+    # Get balance withdrawals by date
+    balance_withdrawal_stats = db.query(
+        func.date(models.BalanceWithdrawal.created_at).label("withdrawal_date"),
+        func.sum(case((models.BalanceWithdrawal.withdrawal_type == 'cash', models.BalanceWithdrawal.amount), else_=0)).label("cash_withdrawals"),
+        func.sum(case((models.BalanceWithdrawal.withdrawal_type == 'pos', models.BalanceWithdrawal.amount), else_=0)).label("pos_withdrawals")
+    ).filter(
+        func.date(models.BalanceWithdrawal.created_at) >= start,
+        func.date(models.BalanceWithdrawal.created_at) <= end
+    ).group_by(
+        func.date(models.BalanceWithdrawal.created_at)
+    ).all()
+
+    balance_withdrawals_by_date = {}
+    for row in balance_withdrawal_stats:
+        balance_withdrawals_by_date[str(row.withdrawal_date)] = {
+            "cash_withdrawals": row.cash_withdrawals or 0,
+            "pos_withdrawals": row.pos_withdrawals or 0
+        }
+
     # Get all unique dates
     all_dates = sorted(
-        set(list(sales_by_date.keys()) + list(pos_banking_by_date.keys()) + list(carryover_by_date.keys()) + list(pos_fees_by_date.keys())),
+        set(list(sales_by_date.keys()) + list(pos_banking_by_date.keys()) + list(carryover_by_date.keys()) + list(pos_fees_by_date.keys()) + list(balance_withdrawals_by_date.keys())),
         reverse=True
     )
 
@@ -1077,6 +1128,7 @@ async def cash_pos_summary(
             "deposit_count": 0
         })
         carryover = carryover_by_date.get(date_str)
+        balance_withdrawals = balance_withdrawals_by_date.get(date_str, {"cash_withdrawals": 0, "pos_withdrawals": 0})
 
         cash_carryover = carryover.cash_carryover if carryover else 0
         pos_carryover = carryover.pos_carryover if carryover else 0
@@ -1085,16 +1137,18 @@ async def cash_pos_summary(
         pos_sales_fee = pos_fees_by_date.get(date_str, 0)
 
         # Calculate cash and POS balances for the day
-        # Cash: Cash Sales + Deposit Total (cash received) - Withdrawal Amount (cash given out) + Carryover
-        # POS: POS Sales - POS Fee + Withdrawal Total (received from customer) - Deposit Amount (transferred to customer) + Carryover
+        # Cash: Cash Sales + Deposit Total (cash received) - Withdrawal Amount (cash given out) + Carryover - Balance Withdrawals
+        # POS: POS Sales - POS Fee + Withdrawal Total (received from customer) - Deposit Amount (transferred to customer) + Carryover - Balance Withdrawals
         cash_balance = (sales["cash_sales"] +
                        pos_banking["deposit_total"] -      # Cash received from customer
-                       pos_banking["withdrawal_amount"] +  # Cash given to customer (amount, not total)
+                       pos_banking["withdrawal_amount"] -  # Cash given to customer (amount, not total)
+                       balance_withdrawals["cash_withdrawals"] +  # Balance withdrawn
                        cash_carryover)
         pos_balance = (sales["pos_sales"] -
                       pos_sales_fee +                      # POS transaction fee deducted
                       pos_banking["withdrawal_total"] -    # Full amount from customer's account
-                      pos_banking["deposit_amount"] +      # Amount transferred to customer's account
+                      pos_banking["deposit_amount"] -      # Amount transferred to customer's account
+                      balance_withdrawals["pos_withdrawals"] +  # Balance withdrawn
                       pos_carryover)
 
         report_data.append({
@@ -1111,6 +1165,8 @@ async def cash_pos_summary(
             "pos_banking_profit": pos_banking["pos_banking_profit"],
             "withdrawal_count": pos_banking["withdrawal_count"],
             "deposit_count": pos_banking["deposit_count"],
+            "cash_balance_withdrawals": balance_withdrawals["cash_withdrawals"],
+            "pos_balance_withdrawals": balance_withdrawals["pos_withdrawals"],
             "cash_carryover": cash_carryover,
             "pos_carryover": pos_carryover,
             "cash_balance": cash_balance,
@@ -1127,6 +1183,8 @@ async def cash_pos_summary(
     total_deposit_total = sum(r["deposit_total"] for r in report_data)
     total_deposit_amount = sum(r["deposit_amount"] for r in report_data)
     total_pos_banking_profit = sum(r["pos_banking_profit"] for r in report_data)
+    total_cash_balance_withdrawals = sum(r["cash_balance_withdrawals"] for r in report_data)
+    total_pos_balance_withdrawals = sum(r["pos_balance_withdrawals"] for r in report_data)
 
     # Get the previous day's carryover (day before the report start date)
     prev_day = (start - timedelta(days=1)).isoformat()
@@ -1138,10 +1196,10 @@ async def cash_pos_summary(
     total_pos_carryover = prev_day_carryover.pos_carryover if prev_day_carryover else 0
 
     # Grand balances
-    # Cash: Cash Sales + Deposit Total (cash received) - Withdrawal Amount (cash given) + Previous Day's Cash Carryover
-    grand_cash_balance = total_cash_sales + total_deposit_total - total_withdrawal_amount + total_cash_carryover
-    # POS: POS Sales - POS Fee + Withdrawal Total (from customer) - Deposit Amount (to customer) + Previous Day's POS Carryover
-    grand_pos_balance = total_pos_sales - total_pos_sales_fee + total_withdrawal_total - total_deposit_amount + total_pos_carryover
+    # Cash: Cash Sales + Deposit Total (cash received) - Withdrawal Amount (cash given) + Previous Day's Cash Carryover - Balance Withdrawals
+    grand_cash_balance = total_cash_sales + total_deposit_total - total_withdrawal_amount + total_cash_carryover - total_cash_balance_withdrawals
+    # POS: POS Sales - POS Fee + Withdrawal Total (from customer) - Deposit Amount (to customer) + Previous Day's POS Carryover - Balance Withdrawals
+    grand_pos_balance = total_pos_sales - total_pos_sales_fee + total_withdrawal_total - total_deposit_amount + total_pos_carryover - total_pos_balance_withdrawals
 
     return templates.TemplateResponse(
         request, "reports/cash_pos_summary.html", {"user": user,
@@ -1158,6 +1216,8 @@ async def cash_pos_summary(
             "total_deposit_total": total_deposit_total,
             "total_deposit_amount": total_deposit_amount,
             "total_pos_banking_profit": total_pos_banking_profit,
+            "total_cash_balance_withdrawals": total_cash_balance_withdrawals,
+            "total_pos_balance_withdrawals": total_pos_balance_withdrawals,
             "total_cash_carryover": total_cash_carryover,
             "total_pos_carryover": total_pos_carryover,
             "grand_cash_balance": grand_cash_balance,

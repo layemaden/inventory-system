@@ -51,8 +51,12 @@
                 <span class="text-green-600">N{{ "{:,.0f}".format(total_deposit_total) }}</span>
             </div>
             <div class="flex justify-between">
-                <span class="text-gray-500">- Withdrawals:</span>
+                <span class="text-gray-500">- POS Banking Out:</span>
                 <span class="text-red-600">N{{ "{:,.0f}".format(total_withdrawal_amount) }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">- Balance Withdrawn:</span>
+                <span class="text-orange-600">N{{ "{:,.0f}".format(total_cash_balance_withdrawals) }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-gray-500">+ Prev Day Carryover:</span>
@@ -77,12 +81,16 @@
                 <span class="text-red-600">N{{ "{:,.0f}".format(total_pos_sales_fee) }}</span>
             </div>
             <div class="flex justify-between">
-                <span class="text-gray-500">+ Withdrawals:</span>
+                <span class="text-gray-500">+ POS Banking In:</span>
                 <span class="text-green-600">N{{ "{:,.0f}".format(total_withdrawal_total) }}</span>
             </div>
             <div class="flex justify-between">
-                <span class="text-gray-500">- Deposits:</span>
+                <span class="text-gray-500">- POS Banking Out:</span>
                 <span class="text-red-600">N{{ "{:,.0f}".format(total_deposit_amount) }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">- Balance Withdrawn:</span>
+                <span class="text-orange-600">N{{ "{:,.0f}".format(total_pos_balance_withdrawals) }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-gray-500">+ Prev Day Carryover:</span>

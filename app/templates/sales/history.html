@@ -43,6 +43,8 @@
                 <td class="px-6 py-4">
                     {% if sale.payment_method == 'pos' %}
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">POS</span>
+                    {% elif sale.payment_method == 'split' %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">SPLIT</span>
                     {% else %}
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">CASH</span>
                     {% endif %}

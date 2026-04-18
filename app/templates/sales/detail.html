@@ -25,6 +25,13 @@
                 <div class="font-medium">
                     {% if sale.payment_method == 'pos' %}
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">POS</span>
+                    {% elif sale.payment_method == 'split' %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">SPLIT</span>
+                    <div class="mt-1 text-sm">
+                        <span class="text-green-700">Cash: N{{ "{:,.0f}".format(sale.cash_amount or 0) }}</span>
+                        <span class="text-gray-400 mx-1">|</span>
+                        <span class="text-purple-700">POS: N{{ "{:,.0f}".format(sale.pos_amount or 0) }}</span>
+                    </div>
                     {% else %}
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">CASH</span>
                     {% endif %}
@@ -108,7 +115,7 @@
             <div><strong>Receipt #:</strong> {{ sale.id }}</div>
             <div><strong>Date:</strong> {{ sale.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
             <div><strong>Cashier:</strong> {{ sale.user.username }}</div>
-            <div><strong>Payment:</strong> {{ (sale.payment_method or 'cash')|upper }}</div>
+            <div><strong>Payment:</strong> {% if sale.payment_method == 'split' %}SPLIT (Cash: N{{ "{:,.0f}".format(sale.cash_amount or 0) }}, POS: N{{ "{:,.0f}".format(sale.pos_amount or 0) }}){% else %}{{ (sale.payment_method or 'cash')|upper }}{% endif %}</div>
         </div>
         <div style="margin: 10px 0;">
             {% for item in sale.items %}

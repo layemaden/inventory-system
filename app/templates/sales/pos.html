@@ -45,7 +45,16 @@
 
     <!-- Cart -->
     <div class="w-96 bg-white rounded-lg shadow p-4 h-fit sticky top-4">
-        <h2 class="font-bold text-lg mb-4 text-gray-800">Current Sale</h2>
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="font-bold text-lg text-gray-800">Current Sale</h2>
+            <button onclick="showPendingCartsModal()" class="text-sm text-orange-600 hover:text-orange-800 flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span id="pending-count-badge"></span>
+                Pending
+            </button>
+        </div>
 
         <div id="cart-items" class="space-y-2 max-h-96 overflow-y-auto mb-4">
             <p class="text-gray-500 text-center py-4" id="empty-cart">No items in cart</p>
@@ -62,19 +71,56 @@
                 <label class="block text-sm font-medium text-gray-700 mb-2">Payment Method:</label>
                 <div class="flex gap-2">
                     <button type="button" onclick="setPaymentMethod('cash')" id="btn-cash"
-                            class="flex-1 py-2 px-4 rounded-lg border-2 border-green-600 bg-green-600 text-white font-medium flex items-center justify-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            class="flex-1 py-2 px-3 rounded-lg border-2 border-green-600 bg-green-600 text-white font-medium flex items-center justify-center gap-1 text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
                         </svg>
                         Cash
                     </button>
                     <button type="button" onclick="setPaymentMethod('pos')" id="btn-pos"
-                            class="flex-1 py-2 px-4 rounded-lg border-2 border-gray-300 text-gray-700 font-medium flex items-center justify-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            class="flex-1 py-2 px-3 rounded-lg border-2 border-gray-300 text-gray-700 font-medium flex items-center justify-center gap-1 text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
                         </svg>
                         POS
                     </button>
+                    <button type="button" onclick="setPaymentMethod('split')" id="btn-split"
+                            class="flex-1 py-2 px-3 rounded-lg border-2 border-gray-300 text-gray-700 font-medium flex items-center justify-center gap-1 text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                        </svg>
+                        Split
+                    </button>
+                </div>
+
+                <!-- Split Payment Inputs (hidden by default) -->
+                <div id="split-payment-inputs" class="hidden mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
+                    <div class="flex gap-3">
+                        <div class="flex-1">
+                            <label class="block text-xs font-medium text-green-700 mb-1">Cash Amount</label>
+                            <input type="number" id="split-cash-amount" min="0" step="100" value="0"
+                                   class="w-full border border-green-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-500"
+                                   oninput="updateSplitRemaining()">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-xs font-medium text-purple-700 mb-1">POS Amount</label>
+                            <input type="number" id="split-pos-amount" min="0" step="100" value="0"
+                                   class="w-full border border-purple-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                   oninput="updateSplitRemaining()">
+                        </div>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Remaining:</span>
+                        <span id="split-remaining" class="font-medium text-red-600">N0</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="autoFillCash()" class="flex-1 text-xs py-1 bg-green-100 text-green-700 rounded hover:bg-green-200">
+                            Fill Cash
+                        </button>
+                        <button type="button" onclick="autoFillPOS()" class="flex-1 text-xs py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200">
+                            Fill POS
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -84,9 +130,16 @@
                 Complete Sale
             </button>
 
-            <button onclick="clearCart()" class="w-full mt-2 text-gray-600 py-2 hover:text-red-600">
-                Clear Cart
-            </button>
+            <div class="flex gap-2 mt-2">
+                <button onclick="holdCart()" id="hold-btn"
+                        class="flex-1 py-2 text-orange-600 border border-orange-300 rounded-lg hover:bg-orange-50 disabled:text-gray-400 disabled:border-gray-200 disabled:hover:bg-white"
+                        disabled>
+                    Hold Cart
+                </button>
+                <button onclick="clearCart()" class="flex-1 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Clear
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -173,6 +226,50 @@
     </div>
 </div>
 
+<!-- Hold Cart Modal -->
+<div id="hold-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+        <h3 class="text-xl font-bold mb-4">Hold Cart</h3>
+        <p class="text-gray-600 mb-4">Save this cart to resume later. You can add an optional note to identify it.</p>
+
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Note (optional):</label>
+            <input type="text" id="hold-note" placeholder="e.g., Customer name or description"
+                   class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                   maxlength="200">
+        </div>
+
+        <div class="flex gap-2">
+            <button onclick="closeHoldModal()" class="flex-1 py-2 border rounded-lg hover:bg-gray-100">
+                Cancel
+            </button>
+            <button onclick="confirmHoldCart()" class="flex-1 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
+                Hold Cart
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Carts Modal -->
+<div id="pending-carts-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-bold">Pending Carts</h3>
+            <button onclick="closePendingCartsModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+        </div>
+
+        <div id="pending-carts-list" class="flex-1 overflow-y-auto space-y-2">
+            <p class="text-gray-500 text-center py-8">Loading...</p>
+        </div>
+
+        <div class="mt-4 pt-4 border-t">
+            <button onclick="closePendingCartsModal()" class="w-full py-2 border rounded-lg hover:bg-gray-100">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Print Receipt Template (hidden, only shows when printing) -->
 <div id="receipt-print" class="hidden print:block">
     <div class="receipt-content" style="width: 280px; font-family: 'Courier New', monospace; font-size: 12px; padding: 10px;">
@@ -242,18 +339,73 @@ function setPaymentMethod(method) {
     currentPaymentMethod = method;
     const cashBtn = document.getElementById('btn-cash');
     const posBtn = document.getElementById('btn-pos');
+    const splitBtn = document.getElementById('btn-split');
+    const splitInputs = document.getElementById('split-payment-inputs');
+
+    // Reset all buttons
+    [cashBtn, posBtn, splitBtn].forEach(btn => {
+        btn.classList.remove('border-green-600', 'bg-green-600', 'border-purple-600', 'bg-purple-600', 'border-orange-600', 'bg-orange-600', 'text-white');
+        btn.classList.add('border-gray-300', 'text-gray-700');
+    });
 
     if (method === 'cash') {
         cashBtn.classList.add('border-green-600', 'bg-green-600', 'text-white');
         cashBtn.classList.remove('border-gray-300', 'text-gray-700');
-        posBtn.classList.remove('border-purple-600', 'bg-purple-600', 'text-white');
-        posBtn.classList.add('border-gray-300', 'text-gray-700');
-    } else {
+        splitInputs.classList.add('hidden');
+    } else if (method === 'pos') {
         posBtn.classList.add('border-purple-600', 'bg-purple-600', 'text-white');
         posBtn.classList.remove('border-gray-300', 'text-gray-700');
-        cashBtn.classList.remove('border-green-600', 'bg-green-600', 'text-white');
-        cashBtn.classList.add('border-gray-300', 'text-gray-700');
+        splitInputs.classList.add('hidden');
+    } else if (method === 'split') {
+        splitBtn.classList.add('border-orange-600', 'bg-orange-600', 'text-white');
+        splitBtn.classList.remove('border-gray-300', 'text-gray-700');
+        splitInputs.classList.remove('hidden');
+        // Reset split amounts and update remaining
+        document.getElementById('split-cash-amount').value = 0;
+        document.getElementById('split-pos-amount').value = 0;
+        updateSplitRemaining();
     }
+}
+
+function getCartTotal() {
+    return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+}
+
+function updateSplitRemaining() {
+    const total = getCartTotal();
+    const cashAmount = parseFloat(document.getElementById('split-cash-amount').value) || 0;
+    const posAmount = parseFloat(document.getElementById('split-pos-amount').value) || 0;
+    const remaining = total - cashAmount - posAmount;
+
+    const remainingEl = document.getElementById('split-remaining');
+    remainingEl.textContent = 'N' + remaining.toLocaleString();
+
+    if (remaining <= 0) {
+        remainingEl.classList.remove('text-red-600');
+        remainingEl.classList.add('text-green-600');
+        if (remaining < 0) {
+            remainingEl.textContent = 'N' + remaining.toLocaleString() + ' (overpaid)';
+        }
+    } else {
+        remainingEl.classList.remove('text-green-600');
+        remainingEl.classList.add('text-red-600');
+    }
+}
+
+function autoFillCash() {
+    const total = getCartTotal();
+    const posAmount = parseFloat(document.getElementById('split-pos-amount').value) || 0;
+    const remaining = Math.max(0, total - posAmount);
+    document.getElementById('split-cash-amount').value = remaining;
+    updateSplitRemaining();
+}
+
+function autoFillPOS() {
+    const total = getCartTotal();
+    const cashAmount = parseFloat(document.getElementById('split-cash-amount').value) || 0;
+    const remaining = Math.max(0, total - cashAmount);
+    document.getElementById('split-pos-amount').value = remaining;
+    updateSplitRemaining();
 }
 
 function showAddModal(element) {
@@ -513,13 +665,17 @@ function renderCart() {
     const container = document.getElementById('cart-items');
     const totalEl = document.getElementById('cart-total');
     const completeBtn = document.getElementById('complete-btn');
+    const holdBtn = document.getElementById('hold-btn');
 
     if (cart.length === 0) {
         container.innerHTML = '<p class="text-gray-500 text-center py-4">No items in cart</p>';
         totalEl.textContent = 'N0';
         completeBtn.disabled = true;
+        holdBtn.disabled = true;
         return;
     }
+
+    holdBtn.disabled = false;
 
     let total = 0;
     let html = '';
@@ -560,6 +716,20 @@ function renderCart() {
 async function completeSale() {
     if (cart.length === 0) return;
 
+    // Validate split payment
+    let cashAmount = 0;
+    let posAmount = 0;
+    if (currentPaymentMethod === 'split') {
+        cashAmount = parseFloat(document.getElementById('split-cash-amount').value) || 0;
+        posAmount = parseFloat(document.getElementById('split-pos-amount').value) || 0;
+        const total = getCartTotal();
+
+        if (cashAmount + posAmount < total) {
+            showAlert(`Split payment total (N${(cashAmount + posAmount).toLocaleString()}) is less than sale total (N${total.toLocaleString()})`, 'Insufficient Payment', 'error');
+            return;
+        }
+    }
+
     const saleItems = cart.map(item => ({
         product_id: item.id,
         name: item.name,
@@ -581,11 +751,22 @@ async function completeSale() {
         pack_id: item.packId ? parseInt(item.packId) : null
     }));
 
+    const requestBody = {
+        items,
+        payment_method: currentPaymentMethod
+    };
+
+    // Add split amounts if split payment
+    if (currentPaymentMethod === 'split') {
+        requestBody.cash_amount = cashAmount;
+        requestBody.pos_amount = posAmount;
+    }
+
     try {
         const response = await fetch('/sales/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items, payment_method: currentPaymentMethod })
+            body: JSON.stringify(requestBody)
         });
 
         const data = await response.json();
@@ -596,7 +777,9 @@ async function completeSale() {
                 total: data.total,
                 items: saleItems,
                 date: new Date().toLocaleString(),
-                paymentMethod: currentPaymentMethod
+                paymentMethod: currentPaymentMethod,
+                cashAmount: currentPaymentMethod === 'split' ? cashAmount : (currentPaymentMethod === 'cash' ? data.total : 0),
+                posAmount: currentPaymentMethod === 'split' ? posAmount : (currentPaymentMethod === 'pos' ? data.total : 0)
             };
 
             document.getElementById('sale-id').textContent = data.sale_id;
@@ -607,6 +790,9 @@ async function completeSale() {
             if (currentPaymentMethod === 'pos') {
                 badge.textContent = 'POS';
                 badge.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800';
+            } else if (currentPaymentMethod === 'split') {
+                badge.innerHTML = `<span class="text-green-700">Cash: N${cashAmount.toLocaleString()}</span> + <span class="text-purple-700">POS: N${posAmount.toLocaleString()}</span>`;
+                badge.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800';
             } else {
                 badge.textContent = 'CASH';
                 badge.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800';
@@ -630,7 +816,13 @@ function prepareReceipt(saleData) {
     document.getElementById('receipt-sale-id').textContent = saleData.saleId;
     document.getElementById('receipt-date').textContent = saleData.date;
     document.getElementById('receipt-total').textContent = 'N' + saleData.total.toLocaleString();
-    document.getElementById('receipt-payment').textContent = saleData.paymentMethod.toUpperCase();
+
+    // Format payment method for receipt
+    let paymentText = saleData.paymentMethod.toUpperCase();
+    if (saleData.paymentMethod === 'split') {
+        paymentText = `SPLIT (Cash: N${saleData.cashAmount.toLocaleString()}, POS: N${saleData.posAmount.toLocaleString()})`;
+    }
+    document.getElementById('receipt-payment').textContent = paymentText;
 
     let itemsHtml = '';
     saleData.items.forEach(item => {
@@ -680,5 +872,221 @@ function filterProducts() {
         card.style.display = (matchesSearch && matchesCategory) ? 'block' : 'none';
     });
 }
+
+// ==================== PENDING CART FUNCTIONS ====================
+
+function holdCart() {
+    if (cart.length === 0) return;
+    document.getElementById('hold-note').value = '';
+    document.getElementById('hold-modal').classList.remove('hidden');
+}
+
+function closeHoldModal() {
+    document.getElementById('hold-modal').classList.add('hidden');
+}
+
+async function confirmHoldCart() {
+    if (cart.length === 0) return;
+
+    const note = document.getElementById('hold-note').value.trim();
+
+    const items = cart.map(item => ({
+        product_id: item.id,
+        quantity: item.quantity,
+        price: item.price,
+        sale_type: item.saleType,
+        pack_id: item.packId ? parseInt(item.packId) : null,
+        pack_size: item.packSize
+    }));
+
+    try {
+        const response = await fetch('/sales/cart/hold', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items, customer_note: note })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showAlert('Cart held successfully! You can resume it later.', 'Cart Held', 'success');
+            closeHoldModal();
+            cart = [];
+            renderCart();
+            loadPendingCartsCount();
+        } else {
+            showAlert(data.detail || 'Failed to hold cart', 'Error', 'error');
+        }
+    } catch (error) {
+        showAlert('Error holding cart: ' + error.message, 'Error', 'error');
+    }
+}
+
+async function showPendingCartsModal() {
+    document.getElementById('pending-carts-modal').classList.remove('hidden');
+    await loadPendingCarts();
+}
+
+function closePendingCartsModal() {
+    document.getElementById('pending-carts-modal').classList.add('hidden');
+}
+
+async function loadPendingCarts() {
+    const container = document.getElementById('pending-carts-list');
+    container.innerHTML = '<p class="text-gray-500 text-center py-8">Loading...</p>';
+
+    try {
+        const response = await fetch('/sales/cart/pending');
+        const carts = await response.json();
+
+        if (carts.length === 0) {
+            container.innerHTML = '<p class="text-gray-500 text-center py-8">No pending carts</p>';
+            return;
+        }
+
+        let html = '';
+        carts.forEach(cart => {
+            html += `
+                <div class="border rounded-lg p-3 hover:bg-gray-50">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-800">
+                                ${cart.customer_note || 'Cart #' + cart.id}
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                ${cart.item_count} item${cart.item_count > 1 ? 's' : ''} &bull;
+                                N${cart.total_amount.toLocaleString()} &bull;
+                                by ${cart.user}
+                            </div>
+                            <div class="text-xs text-gray-400">${cart.created_at}</div>
+                        </div>
+                        <div class="flex gap-2 ml-2">
+                            <button onclick="resumeCart(${cart.id})"
+                                    class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+                                Resume
+                            </button>
+                            <button onclick="deletePendingCart(${cart.id})"
+                                    class="px-3 py-1 bg-red-100 text-red-600 text-sm rounded hover:bg-red-200">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    } catch (error) {
+        container.innerHTML = '<p class="text-red-500 text-center py-8">Error loading pending carts</p>';
+    }
+}
+
+async function loadPendingCartsCount() {
+    try {
+        const response = await fetch('/sales/cart/pending');
+        const carts = await response.json();
+        const badge = document.getElementById('pending-count-badge');
+        if (carts.length > 0) {
+            badge.textContent = `(${carts.length})`;
+        } else {
+            badge.textContent = '';
+        }
+    } catch (error) {
+        console.error('Error loading pending carts count:', error);
+    }
+}
+
+async function resumeCart(cartId) {
+    // Check if current cart has items
+    if (cart.length > 0) {
+        const confirmed = await showConfirm(
+            'You have items in your current cart. Resuming will replace them. Continue?',
+            'Resume Cart',
+            {icon: 'warning', confirmText: 'Resume'}
+        );
+        if (!confirmed) return;
+    }
+
+    try {
+        const response = await fetch(`/sales/cart/pending/${cartId}`);
+        const pendingCart = await response.json();
+
+        // Convert pending cart items to current cart format
+        cart = [];
+        let hasStockIssues = false;
+
+        for (const item of pendingCart.items) {
+            const packSize = item.pack_size || 1;
+            const unitsNeeded = item.sale_type === 'pack' ? item.quantity * packSize : item.quantity;
+
+            // Check if stock is still available
+            if (item.current_stock < unitsNeeded) {
+                hasStockIssues = true;
+            }
+
+            const cartKey = `${item.product_id}-${item.sale_type}-${item.pack_id || 'unit'}`;
+
+            cart.push({
+                cartKey,
+                id: item.product_id,
+                name: item.name,
+                price: item.price,
+                stock: item.current_stock,
+                quantity: item.quantity,
+                saleType: item.sale_type,
+                packId: item.pack_id,
+                packName: item.pack_name || '',
+                packSize: packSize,
+                unitsUsed: unitsNeeded,
+                unit: item.unit
+            });
+        }
+
+        // Delete the pending cart after resuming
+        await fetch(`/sales/cart/pending/${cartId}`, { method: 'DELETE' });
+
+        closePendingCartsModal();
+        renderCart();
+        loadPendingCartsCount();
+
+        if (hasStockIssues) {
+            showAlert('Some items may have insufficient stock. Please review the cart.', 'Stock Warning', 'warning');
+        }
+    } catch (error) {
+        showAlert('Error resuming cart: ' + error.message, 'Error', 'error');
+    }
+}
+
+async function deletePendingCart(cartId) {
+    const confirmed = await showConfirm(
+        'Are you sure you want to delete this pending cart?',
+        'Delete Pending Cart',
+        {icon: 'delete', confirmText: 'Delete'}
+    );
+
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch(`/sales/cart/pending/${cartId}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            await loadPendingCarts();
+            loadPendingCartsCount();
+        } else {
+            showAlert(data.detail || 'Failed to delete pending cart', 'Error', 'error');
+        }
+    } catch (error) {
+        showAlert('Error deleting pending cart: ' + error.message, 'Error', 'error');
+    }
+}
+
+// Load pending carts count on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadPendingCartsCount();
+});
 </script>
 {% endblock %}
