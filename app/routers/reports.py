@@ -43,22 +43,34 @@ async def daily_sales_report(
     end = datetime.strptime(end_date, "%Y-%m-%d").date()
 
     # Query daily sales with payment method breakdown
+    # For split payments, use cash_amount/pos_amount; for single payments, use total_amount
     daily_stats = db.query(
         func.date(models.Sale.created_at).label("sale_date"),
         func.count(models.Sale.id).label("transaction_count"),
         func.sum(models.Sale.total_amount).label("total_sales"),
         func.sum(
-            case((models.Sale.payment_method == 'cash', models.Sale.total_amount), else_=0)
+            case(
+                (models.Sale.payment_method == 'cash', models.Sale.total_amount),
+                (models.Sale.payment_method == 'split', models.Sale.cash_amount),
+                else_=0
+            )
         ).label("cash_total"),
         func.sum(
-            case((models.Sale.payment_method == 'pos', models.Sale.total_amount), else_=0)
+            case(
+                (models.Sale.payment_method == 'pos', models.Sale.total_amount),
+                (models.Sale.payment_method == 'split', models.Sale.pos_amount),
+                else_=0
+            )
         ).label("pos_total"),
         func.count(
             case((models.Sale.payment_method == 'cash', 1), else_=None)
         ).label("cash_count"),
         func.count(
             case((models.Sale.payment_method == 'pos', 1), else_=None)
-        ).label("pos_count")
+        ).label("pos_count"),
+        func.count(
+            case((models.Sale.payment_method == 'split', 1), else_=None)
+        ).label("split_count")
     ).filter(
         func.date(models.Sale.created_at) >= start,
         func.date(models.Sale.created_at) <= end
@@ -124,6 +136,7 @@ async def daily_sales_report(
             "pos_total": row.pos_total or 0,
             "cash_count": row.cash_count or 0,
             "pos_count": row.pos_count or 0,
+            "split_count": row.split_count or 0,
             "items_sold": items_by_date.get(date_str, 0),
             "cash_carryover": carryover.cash_carryover if carryover else 0,
             "pos_carryover": carryover.pos_carryover if carryover else 0,
@@ -392,10 +405,18 @@ def calculate_suggested_carryover(db: Session, date_str: str) -> dict:
     prev_cash_carryover = prev_carryover.cash_carryover if prev_carryover else 0
     prev_pos_carryover = prev_carryover.pos_carryover if prev_carryover else 0
 
-    # Get previous day's sales by payment method
+    # Get previous day's sales by payment method (including split payments)
     prev_sales = db.query(
-        func.sum(case((models.Sale.payment_method == 'cash', models.Sale.total_amount), else_=0)).label("cash_sales"),
-        func.sum(case((models.Sale.payment_method == 'pos', models.Sale.total_amount), else_=0)).label("pos_sales")
+        func.sum(case(
+            (models.Sale.payment_method == 'cash', models.Sale.total_amount),
+            (models.Sale.payment_method == 'split', models.Sale.cash_amount),
+            else_=0
+        )).label("cash_sales"),
+        func.sum(case(
+            (models.Sale.payment_method == 'pos', models.Sale.total_amount),
+            (models.Sale.payment_method == 'split', models.Sale.pos_amount),
+            else_=0
+        )).label("pos_sales")
     ).filter(
         func.date(models.Sale.created_at) == prev_date
     ).first()
@@ -407,14 +428,20 @@ def calculate_suggested_carryover(db: Session, date_str: str) -> dict:
     pos_fee_percentage = float(get_setting(db, "pos_fee_percentage", "0"))
     pos_fee_cap = float(get_setting(db, "pos_fee_cap", "100"))
 
-    # Calculate POS sales fee per transaction for previous day
-    prev_pos_sales_list = db.query(models.Sale.total_amount).filter(
+    # Calculate POS sales fee per transaction for previous day (including split payments)
+    prev_pos_sales_list = db.query(
+        models.Sale.total_amount, models.Sale.payment_method, models.Sale.pos_amount
+    ).filter(
         func.date(models.Sale.created_at) == prev_date,
-        models.Sale.payment_method == 'pos'
+        models.Sale.payment_method.in_(['pos', 'split'])
     ).all()
 
     prev_pos_fee = sum(
-        calculate_pos_fee_per_transaction(sale.total_amount, pos_fee_percentage, pos_fee_cap)
+        calculate_pos_fee_per_transaction(
+            sale.total_amount if sale.payment_method == 'pos' else sale.pos_amount,
+            pos_fee_percentage,
+            pos_fee_cap
+        )
         for sale in prev_pos_sales_list
     )
 
@@ -576,12 +603,21 @@ async def today_summary(
     pos_fee_percentage = float(get_setting(db, "pos_fee_percentage", "0"))
     pos_fee_cap = float(get_setting(db, "pos_fee_cap", "100"))
 
-    # Get today's sales
+    # Get today's sales (including split payments)
     sales_stats = db.query(
-        func.sum(case((models.Sale.payment_method == 'cash', models.Sale.total_amount), else_=0)).label("cash_sales"),
-        func.sum(case((models.Sale.payment_method == 'pos', models.Sale.total_amount), else_=0)).label("pos_sales"),
+        func.sum(case(
+            (models.Sale.payment_method == 'cash', models.Sale.total_amount),
+            (models.Sale.payment_method == 'split', models.Sale.cash_amount),
+            else_=0
+        )).label("cash_sales"),
+        func.sum(case(
+            (models.Sale.payment_method == 'pos', models.Sale.total_amount),
+            (models.Sale.payment_method == 'split', models.Sale.pos_amount),
+            else_=0
+        )).label("pos_sales"),
         func.count(case((models.Sale.payment_method == 'cash', 1), else_=None)).label("cash_count"),
-        func.count(case((models.Sale.payment_method == 'pos', 1), else_=None)).label("pos_count")
+        func.count(case((models.Sale.payment_method == 'pos', 1), else_=None)).label("pos_count"),
+        func.count(case((models.Sale.payment_method == 'split', 1), else_=None)).label("split_count")
     ).filter(
         func.date(models.Sale.created_at) == today
     ).first()
@@ -590,13 +626,20 @@ async def today_summary(
     pos_sales = sales_stats.pos_sales or 0
     cash_count = sales_stats.cash_count or 0
     pos_count = sales_stats.pos_count or 0
+    split_count = sales_stats.split_count or 0
 
-    # Calculate POS fee per transaction
-    pos_sales_list = db.query(models.Sale.total_amount).filter(
+    # Calculate POS fee per transaction (including POS portion of split payments)
+    pos_sales_list = db.query(models.Sale.total_amount, models.Sale.payment_method, models.Sale.pos_amount).filter(
         func.date(models.Sale.created_at) == today,
-        models.Sale.payment_method == 'pos'
+        models.Sale.payment_method.in_(['pos', 'split'])
     ).all()
-    pos_fee = sum(calculate_pos_fee_per_transaction(s.total_amount, pos_fee_percentage, pos_fee_cap) for s in pos_sales_list)
+    pos_fee = sum(
+        calculate_pos_fee_per_transaction(
+            s.total_amount if s.payment_method == 'pos' else s.pos_amount,
+            pos_fee_percentage,
+            pos_fee_cap
+        ) for s in pos_sales_list
+    )
 
     # Get today's POS banking
     pos_banking_stats = db.query(
@@ -660,6 +703,7 @@ async def today_summary(
             "pos_fee": pos_fee,
             "cash_count": cash_count,
             "pos_count": pos_count,
+            "split_count": split_count,
             "withdrawal_total": withdrawal_total,
             "withdrawal_amount": withdrawal_amount,
             "deposit_total": deposit_total,
@@ -1011,30 +1055,42 @@ async def cash_pos_summary(
     pos_fee_percentage = float(get_setting(db, "pos_fee_percentage", "0"))
     pos_fee_cap = float(get_setting(db, "pos_fee_cap", "100"))
 
-    # Get individual POS sales to calculate fee per transaction
+    # Get individual POS sales to calculate fee per transaction (including split payments)
     pos_sales_list = db.query(
         func.date(models.Sale.created_at).label("sale_date"),
-        models.Sale.total_amount
+        models.Sale.total_amount,
+        models.Sale.payment_method,
+        models.Sale.pos_amount
     ).filter(
         func.date(models.Sale.created_at) >= start,
         func.date(models.Sale.created_at) <= end,
-        models.Sale.payment_method == 'pos'
+        models.Sale.payment_method.in_(['pos', 'split'])
     ).all()
 
     # Calculate fees per transaction and group by date
     pos_fees_by_date = {}
     for sale in pos_sales_list:
         date_str = str(sale.sale_date)
-        fee = calculate_pos_fee_per_transaction(sale.total_amount, pos_fee_percentage, pos_fee_cap)
+        pos_amt = sale.total_amount if sale.payment_method == 'pos' else sale.pos_amount
+        fee = calculate_pos_fee_per_transaction(pos_amt, pos_fee_percentage, pos_fee_cap)
         pos_fees_by_date[date_str] = pos_fees_by_date.get(date_str, 0) + fee
 
-    # Get sales by date and payment method
+    # Get sales by date and payment method (including split payments)
     sales_stats = db.query(
         func.date(models.Sale.created_at).label("sale_date"),
-        func.sum(case((models.Sale.payment_method == 'cash', models.Sale.total_amount), else_=0)).label("cash_sales"),
-        func.sum(case((models.Sale.payment_method == 'pos', models.Sale.total_amount), else_=0)).label("pos_sales"),
+        func.sum(case(
+            (models.Sale.payment_method == 'cash', models.Sale.total_amount),
+            (models.Sale.payment_method == 'split', models.Sale.cash_amount),
+            else_=0
+        )).label("cash_sales"),
+        func.sum(case(
+            (models.Sale.payment_method == 'pos', models.Sale.total_amount),
+            (models.Sale.payment_method == 'split', models.Sale.pos_amount),
+            else_=0
+        )).label("pos_sales"),
         func.count(case((models.Sale.payment_method == 'cash', 1), else_=None)).label("cash_count"),
-        func.count(case((models.Sale.payment_method == 'pos', 1), else_=None)).label("pos_count")
+        func.count(case((models.Sale.payment_method == 'pos', 1), else_=None)).label("pos_count"),
+        func.count(case((models.Sale.payment_method == 'split', 1), else_=None)).label("split_count")
     ).filter(
         func.date(models.Sale.created_at) >= start,
         func.date(models.Sale.created_at) <= end
@@ -1048,7 +1104,8 @@ async def cash_pos_summary(
             "cash_sales": row.cash_sales or 0,
             "pos_sales": row.pos_sales or 0,
             "cash_count": row.cash_count or 0,
-            "pos_count": row.pos_count or 0
+            "pos_count": row.pos_count or 0,
+            "split_count": row.split_count or 0
         }
 
     # Get POS banking by date
@@ -1224,5 +1281,87 @@ async def cash_pos_summary(
             "grand_pos_balance": grand_pos_balance,
             "pos_fee_percentage": pos_fee_percentage,
             "pos_fee_cap": pos_fee_cap
+        }
+    )
+
+
+@router.get("/inventory-summary", response_class=HTMLResponse)
+async def inventory_summary(
+    request: Request,
+    category_id: int = None,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_login)
+):
+    """Inventory summary showing total stock, sold, and remaining for each product"""
+    # Get all products with their total sold units
+    query = db.query(
+        models.Product.id,
+        models.Product.name,
+        models.Category.name.label("category"),
+        models.Product.store_quantity,
+        models.Product.shop_quantity,
+        models.Product.reorder_level,
+        func.coalesce(func.sum(models.SaleItem.units_deducted), 0).label("total_sold"),
+        func.coalesce(func.sum(models.StockAdjustment.quantity_change), 0).label("total_adjustments")
+    ).outerjoin(
+        models.SaleItem, models.Product.id == models.SaleItem.product_id
+    ).outerjoin(
+        models.StockAdjustment, models.Product.id == models.StockAdjustment.product_id
+    ).join(
+        models.Category, models.Product.category_id == models.Category.id
+    )
+
+    if category_id:
+        query = query.filter(models.Product.category_id == category_id)
+
+    query = query.group_by(
+        models.Product.id, models.Product.name, models.Category.name,
+        models.Product.store_quantity, models.Product.shop_quantity,
+        models.Product.reorder_level
+    ).order_by(models.Product.name)
+
+    products = query.all()
+
+    # Get categories for filter
+    categories = db.query(models.Category).order_by(models.Category.name).all()
+
+    report_data = []
+    total_stock = 0
+    total_sold = 0
+    total_remaining = 0
+
+    for p in products:
+        remaining = (p.store_quantity or 0) + (p.shop_quantity or 0)
+        sold = p.total_sold or 0
+        # Total stock = current remaining + total sold (what we've had in total)
+        stock = remaining + sold
+
+        total_stock += stock
+        total_sold += sold
+        total_remaining += remaining
+
+        report_data.append({
+            "id": p.id,
+            "name": p.name,
+            "category": p.category,
+            "total_stock": stock,
+            "sold": sold,
+            "remaining": remaining,
+            "store_quantity": p.store_quantity or 0,
+            "shop_quantity": p.shop_quantity or 0,
+            "reorder_level": p.reorder_level or 0,
+            "status": "out" if remaining == 0 else "low" if remaining <= (p.reorder_level or 0) else "ok"
+        })
+
+    return templates.TemplateResponse(
+        request, "reports/inventory_summary.html", {
+            "user": user,
+            "is_admin": user.role == "admin",
+            "report_data": report_data,
+            "categories": categories,
+            "selected_category": category_id,
+            "total_stock": total_stock,
+            "total_sold": total_sold,
+            "total_remaining": total_remaining
         }
     )
