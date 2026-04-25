@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Sales Summary - {{ report_date }} - Inventory System{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">Daily Sales Summary per Product</h1>
+    <a href="/reports" class="text-blue-600 hover:underline">Back to Reports</a>
+</div>
+
+<!-- Date Navigation & Filters -->
+<div class="bg-white rounded-lg shadow p-4 mb-6">
+    <form method="get" class="flex flex-wrap gap-4 items-end">
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">Date</label>
+            <input type="date" name="report_date" value="{{ report_date }}"
+                   class="border rounded-lg px-3 py-2">
+        </div>
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">Category</label>
+            <select name="category_id" class="border rounded-lg px-3 py-2">
+                <option value="">All Categories</option>
+                {% for category in categories %}
+                <option value="{{ category.id }}" {% if selected_category == category.id %}selected{% endif %}>
+                    {{ category.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+            View
+        </button>
+        <!-- Quick Navigation -->
+        <div class="flex gap-2 ml-auto">
+            <button type="button" onclick="navigateDate(-1)"
+               class="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200">
+                &larr; Previous Day
+            </button>
+            <a href="/reports/daily-product-sales"
+               class="bg-green-100 text-green-700 px-3 py-2 rounded-lg hover:bg-green-200">
+                Today
+            </a>
+            <button type="button" onclick="navigateDate(1)"
+               class="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200">
+                Next Day &rarr;
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-sm text-gray-500">Date</div>
+        <div class="text-lg font-bold text-gray-800">{{ report_date }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-sm text-gray-500">Transactions</div>
+        <div class="text-xl font-bold text-blue-600">{{ transaction_count }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-sm text-gray-500">Products Sold</div>
+        <div class="text-xl font-bold text-indigo-600">{{ products_with_sales }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-sm text-gray-500">Total Units</div>
+        <div class="text-xl font-bold text-purple-600">{{ "{:,.0f}".format(total_units) }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-sm text-gray-500">Total Revenue</div>
+        <div class="text-xl font-bold text-green-600">N{{ "{:,.0f}".format(total_revenue) }}</div>
+    </div>
+    {% if is_admin %}
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-sm text-gray-500">Total Profit</div>
+        <div class="text-xl font-bold {% if total_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+            N{{ "{:,.0f}".format(total_profit) }}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Products Table -->
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <div class="px-4 py-3 bg-gray-50 border-b">
+        <h2 class="font-semibold text-gray-800">Products Sold on {{ report_date }}</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Sales</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Units Sold</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Packs</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Revenue</th>
+                    {% if is_admin %}
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Profit</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Margin</th>
+                    {% endif %}
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Current Stock</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for item in report_data %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3">
+                        <div class="font-medium text-gray-900">{{ item.name }}</div>
+                        <div class="text-xs text-gray-500">N{{ "{:,.0f}".format(item.selling_price) }}/unit</div>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ item.category }}</td>
+                    <td class="px-4 py-3 text-right">
+                        <span class="text-blue-600 font-medium">{{ item.sale_count }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <span class="text-purple-600 font-medium">{{ "{:,.0f}".format(item.units_sold) }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        {% if item.packs_sold > 0 %}
+                        <span class="text-green-600">{{ "{:,.0f}".format(item.packs_sold) }}</span>
+                        {% else %}
+                        <span class="text-gray-400">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right font-medium text-green-600">
+                        N{{ "{:,.0f}".format(item.revenue) }}
+                    </td>
+                    {% if is_admin %}
+                    <td class="px-4 py-3 text-right text-gray-600">
+                        N{{ "{:,.0f}".format(item.cost) }}
+                    </td>
+                    <td class="px-4 py-3 text-right font-medium {% if item.profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                        N{{ "{:,.0f}".format(item.profit) }}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <span class="{% if item.margin >= 20 %}text-green-600{% elif item.margin >= 10 %}text-yellow-600{% else %}text-red-600{% endif %}">
+                            {{ item.margin }}%
+                        </span>
+                    </td>
+                    {% endif %}
+                    <td class="px-4 py-3 text-right">
+                        <span class="text-sm">
+                            <span class="text-green-600" title="Shop">{{ "{:g}".format(item.shop_quantity) }}</span>
+                            <span class="text-gray-400">/</span>
+                            <span class="text-blue-600" title="Store">{{ "{:g}".format(item.store_quantity) }}</span>
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            {% if report_data %}
+            <tfoot class="bg-gray-50 font-semibold">
+                <tr>
+                    <td class="px-4 py-3 text-gray-800" colspan="2">Total</td>
+                    <td class="px-4 py-3 text-right text-blue-600">{{ report_data | sum(attribute='sale_count') }}</td>
+                    <td class="px-4 py-3 text-right text-purple-600">{{ "{:,.0f}".format(total_units) }}</td>
+                    <td class="px-4 py-3 text-right text-green-600">{{ "{:,.0f}".format(report_data | sum(attribute='packs_sold')) }}</td>
+                    <td class="px-4 py-3 text-right text-green-600">N{{ "{:,.0f}".format(total_revenue) }}</td>
+                    {% if is_admin %}
+                    <td class="px-4 py-3 text-right text-gray-600">N{{ "{:,.0f}".format(total_cost) }}</td>
+                    <td class="px-4 py-3 text-right {% if total_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                        N{{ "{:,.0f}".format(total_profit) }}
+                    </td>
+                    <td class="px-4 py-3 text-right text-blue-600">{{ total_margin }}%</td>
+                    {% endif %}
+                    <td class="px-4 py-3"></td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+
+    {% if not report_data %}
+    <div class="text-center py-8 text-gray-500">
+        No sales recorded for {{ report_date }}.
+    </div>
+    {% endif %}
+</div>
+
+<div class="mt-4 text-sm text-gray-500">
+    Stock: <span class="text-green-600">Shop</span> / <span class="text-blue-600">Store</span>
+</div>
+
+<script>
+function navigateDate(days) {
+    const currentDate = new Date('{{ report_date }}');
+    currentDate.setDate(currentDate.getDate() + days);
+    const newDate = currentDate.toISOString().split('T')[0];
+
+    // Get current category filter if any
+    const categoryId = '{{ selected_category or "" }}';
+    let url = `/reports/daily-product-sales?report_date=${newDate}`;
+    if (categoryId) {
+        url += `&category_id=${categoryId}`;
+    }
+    window.location.href = url;
+}
+</script>
+{% endblock %}

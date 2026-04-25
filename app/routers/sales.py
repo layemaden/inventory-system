@@ -217,7 +217,7 @@ async def sales_history(
     request: Request,
     date_str: str = None,
     db: Session = Depends(get_db),
-    user: models.User = Depends(auth.require_login)
+    user: models.User = Depends(auth.require_admin)
 ):
     query = db.query(models.Sale).order_by(models.Sale.created_at.desc())
 
@@ -243,7 +243,7 @@ async def sale_detail(
     request: Request,
     sale_id: int,
     db: Session = Depends(get_db),
-    user: models.User = Depends(auth.require_login)
+    user: models.User = Depends(auth.require_admin)
 ):
     sale = db.query(models.Sale).filter(models.Sale.id == sale_id).first()
     if not sale:

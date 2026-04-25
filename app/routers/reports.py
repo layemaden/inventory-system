@@ -18,10 +18,10 @@ templates = Jinja2Templates(directory=settings.TEMPLATES_DIR)
 async def reports_page(
     request: Request,
     db: Session = Depends(get_db),
-    user: models.User = Depends(auth.require_login)
+    user: models.User = Depends(auth.require_admin)
 ):
     return templates.TemplateResponse(
-        request, "reports/index.html", {"user": user, "is_admin": user.role == "admin"}
+        request, "reports/index.html", {"user": user, "is_admin": True}
     )
 
 
@@ -31,7 +31,7 @@ async def daily_sales_report(
     start_date: str = None,
     end_date: str = None,
     db: Session = Depends(get_db),
-    user: models.User = Depends(auth.require_login)
+    user: models.User = Depends(auth.require_admin)
 ):
     # Default to last 7 days
     if not end_date:
@@ -351,7 +351,7 @@ async def export_daily_csv(
     start_date: str,
     end_date: str,
     db: Session = Depends(get_db),
-    user: models.User = Depends(auth.require_login)
+    user: models.User = Depends(auth.require_admin)
 ):
     start = datetime.strptime(start_date, "%Y-%m-%d").date()
     end = datetime.strptime(end_date, "%Y-%m-%d").date()
@@ -501,7 +501,7 @@ def calculate_suggested_carryover(db: Session, date_str: str) -> dict:
 async def get_carryover(
     date_str: str,
     db: Session = Depends(get_db),
-    user: models.User = Depends(auth.require_login)
+    user: models.User = Depends(auth.require_admin)
 ):
     """Get carryover data for a specific date with suggested values"""
     carryover = db.query(models.DailyCarryover).filter(
@@ -777,7 +777,7 @@ async def product_sales_breakdown(
     end_date: str = None,
     category_id: int = None,
     db: Session = Depends(get_db),
-    user: models.User = Depends(auth.require_login)
+    user: models.User = Depends(auth.require_admin)
 ):
     """Product sales breakdown - shows sales stats for each product"""
     # Default to last 30 days
@@ -895,7 +895,7 @@ async def product_sales_detail(
     start_date: str = None,
     end_date: str = None,
     db: Session = Depends(get_db),
-    user: models.User = Depends(auth.require_login)
+    user: models.User = Depends(auth.require_admin)
 ):
     """Detailed sales history for a specific product"""
     # Default to last 30 days
@@ -1285,12 +1285,158 @@ async def cash_pos_summary(
     )
 
 
+@router.get("/daily-product-sales", response_class=HTMLResponse)
+async def daily_product_sales(
+    request: Request,
+    report_date: str = None,
+    category_id: str = None,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_admin)
+):
+    """Daily sales summary per product - shows what was sold for each product on a specific day"""
+    # Default to today
+    if not report_date:
+        report_date = date.today().isoformat()
+
+    # Handle empty category_id string
+    category_id_int = None
+    if category_id and category_id.strip():
+        try:
+            category_id_int = int(category_id)
+        except ValueError:
+            pass
+
+    target_date = datetime.strptime(report_date, "%Y-%m-%d").date()
+
+    # Get sales data for the specific date using a subquery
+    from sqlalchemy.orm import aliased
+    from sqlalchemy import and_
+
+    # Subquery: get sale items only for sales on the target date
+    daily_sales_subq = db.query(
+        models.SaleItem.product_id,
+        func.count(models.SaleItem.id).label("sale_count"),
+        func.sum(models.SaleItem.quantity).label("qty_sold"),
+        func.sum(models.SaleItem.units_deducted).label("units_sold"),
+        func.sum(models.SaleItem.unit_price * models.SaleItem.quantity).label("revenue"),
+        func.sum(models.SaleItem.cost_price).label("total_cost"),
+        func.sum(case((models.SaleItem.sale_type == 'pack', models.SaleItem.quantity), else_=0)).label("packs_sold"),
+        func.sum(case((models.SaleItem.sale_type == 'unit', models.SaleItem.quantity), else_=0)).label("units_sold_direct")
+    ).join(
+        models.Sale, models.SaleItem.sale_id == models.Sale.id
+    ).filter(
+        func.date(models.Sale.created_at) == target_date
+    ).group_by(
+        models.SaleItem.product_id
+    ).subquery()
+
+    # Main query: join products with the daily sales subquery
+    query = db.query(
+        models.Product.id,
+        models.Product.name,
+        models.Category.name.label("category"),
+        models.Product.selling_price,
+        models.Product.cost_price,
+        models.Product.shop_quantity,
+        models.Product.store_quantity,
+        func.coalesce(daily_sales_subq.c.sale_count, 0).label("sale_count"),
+        func.coalesce(daily_sales_subq.c.qty_sold, 0).label("qty_sold"),
+        func.coalesce(daily_sales_subq.c.units_sold, 0).label("units_sold"),
+        func.coalesce(daily_sales_subq.c.revenue, 0).label("revenue"),
+        func.coalesce(daily_sales_subq.c.total_cost, 0).label("total_cost"),
+        func.coalesce(daily_sales_subq.c.packs_sold, 0).label("packs_sold"),
+        func.coalesce(daily_sales_subq.c.units_sold_direct, 0).label("units_sold_direct")
+    ).outerjoin(
+        daily_sales_subq, models.Product.id == daily_sales_subq.c.product_id
+    ).join(
+        models.Category, models.Product.category_id == models.Category.id
+    )
+
+    if category_id_int:
+        query = query.filter(models.Product.category_id == category_id_int)
+
+    query = query.order_by(
+        daily_sales_subq.c.revenue.desc().nullslast()
+    )
+
+    products = query.all()
+
+    # Get categories for filter
+    categories = db.query(models.Category).order_by(models.Category.name).all()
+
+    # Filter to only show products with sales on this day (or all if no sales)
+    report_data = []
+    total_revenue = 0
+    total_cost = 0
+    total_units = 0
+    products_with_sales = 0
+
+    for p in products:
+        revenue = p.revenue or 0
+        cost = p.total_cost or 0
+        profit = revenue - cost
+        margin = (profit / revenue * 100) if revenue > 0 else 0
+        units = p.units_sold or p.qty_sold or 0
+
+        # Only include products that had sales on this day
+        if units > 0 or revenue > 0:
+            total_revenue += revenue
+            total_cost += cost
+            total_units += units
+            products_with_sales += 1
+
+            report_data.append({
+                "id": p.id,
+                "name": p.name,
+                "category": p.category,
+                "selling_price": p.selling_price,
+                "cost_price": p.cost_price,
+                "shop_quantity": p.shop_quantity or 0,
+                "store_quantity": p.store_quantity or 0,
+                "sale_count": p.sale_count or 0,
+                "qty_sold": p.qty_sold or 0,
+                "units_sold": units,
+                "packs_sold": p.packs_sold or 0,
+                "units_sold_direct": p.units_sold_direct or 0,
+                "revenue": revenue,
+                "cost": cost,
+                "profit": profit,
+                "margin": round(margin, 1)
+            })
+
+    total_profit = total_revenue - total_cost
+    total_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
+
+    # Get transaction count for the day
+    transaction_count = db.query(func.count(models.Sale.id)).filter(
+        func.date(models.Sale.created_at) == target_date
+    ).scalar() or 0
+
+    return templates.TemplateResponse(
+        request, "reports/daily_product_sales.html", {
+            "user": user,
+            "is_admin": user.role == "admin",
+            "report_data": report_data,
+            "categories": categories,
+            "selected_category": category_id_int,
+            "report_date": report_date,
+            "total_revenue": total_revenue,
+            "total_cost": total_cost,
+            "total_profit": total_profit,
+            "total_margin": round(total_margin, 1),
+            "total_units": total_units,
+            "products_with_sales": products_with_sales,
+            "transaction_count": transaction_count
+        }
+    )
+
+
 @router.get("/inventory-summary", response_class=HTMLResponse)
 async def inventory_summary(
     request: Request,
     category_id: int = None,
     db: Session = Depends(get_db),
-    user: models.User = Depends(auth.require_login)
+    user: models.User = Depends(auth.require_admin)
 ):
     """Inventory summary showing total stock, sold, and remaining for each product"""
     # Get all products with their total sold units

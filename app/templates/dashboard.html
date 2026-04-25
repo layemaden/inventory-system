@@ -114,13 +114,16 @@
     <!-- Recent Sales -->
     <div class="bg-white rounded-lg shadow">
         <div class="px-6 py-4 border-b flex justify-between items-center">
-            <h2 class="font-semibold text-gray-800">Recent Sales</h2>
+            <h2 class="font-semibold text-gray-800">Recent Sales (Last 5)</h2>
+            {% if is_admin %}
             <a href="/sales/history" class="text-sm text-blue-600 hover:underline">View all</a>
+            {% endif %}
         </div>
         <div class="p-6">
             {% if recent_sales %}
             <div class="space-y-3">
                 {% for sale in recent_sales %}
+                {% if is_admin %}
                 <a href="/sales/{{ sale.id }}" class="block p-3 rounded-lg hover:bg-gray-50 border">
                     <div class="flex justify-between items-center">
                         <div>
@@ -132,6 +135,19 @@
                         <div class="font-bold text-green-600">N{{ "{:,.0f}".format(sale.total_amount) }}</div>
                     </div>
                 </a>
+                {% else %}
+                <div class="block p-3 rounded-lg border bg-gray-50">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <div class="font-medium text-gray-800">Sale #{{ sale.id }}</div>
+                            <div class="text-sm text-gray-500">
+                                {{ sale.created_at.strftime('%b %d, %H:%M') }} - {{ sale.items|length }} items
+                            </div>
+                        </div>
+                        <div class="font-bold text-green-600">N{{ "{:,.0f}".format(sale.total_amount) }}</div>
+                    </div>
+                </div>
+                {% endif %}
                 {% endfor %}
             </div>
             {% else %}
@@ -155,10 +171,10 @@
         <a href="/reports/profit" class="bg-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-purple-700 transition">
             Profit Report
         </a>
-        {% endif %}
-        <a href="/reports/daily" class="bg-gray-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-700 transition">
-            Daily Report
+        <a href="/reports" class="bg-gray-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-700 transition">
+            All Reports
         </a>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
