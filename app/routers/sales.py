@@ -176,15 +176,9 @@ async def complete_sale(
         pos_amount = 0
     else:  # pos
         cash_amount = 0
-        pos_amount = total_amount
-
-    # For POS payments, validate cashback doesn't exceed POS amount minus sale total
-    if payment_method == 'pos' and pos_cashback > 0:
-        if pos_cashback > (pos_amount - total_amount):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cashback (N{pos_cashback:,.0f}) cannot exceed POS overpayment (N{pos_amount - total_amount:,.0f})"
-            )
+        # If there's cashback, customer paid more via POS than the sale total
+        # pos_amount reflects actual POS payment (sale total + cashback given)
+        pos_amount = total_amount + pos_cashback
 
     # Create sale
     sale = models.Sale(
