@@ -1447,6 +1447,7 @@ async def inventory_summary(
         models.Product.store_quantity,
         models.Product.shop_quantity,
         models.Product.reorder_level,
+        models.Product.cost_price,
         func.coalesce(func.sum(models.SaleItem.units_deducted), 0).label("total_sold"),
         func.coalesce(func.sum(models.StockAdjustment.quantity_change), 0).label("total_adjustments")
     ).outerjoin(
@@ -1463,7 +1464,7 @@ async def inventory_summary(
     query = query.group_by(
         models.Product.id, models.Product.name, models.Category.name,
         models.Product.store_quantity, models.Product.shop_quantity,
-        models.Product.reorder_level
+        models.Product.reorder_level, models.Product.cost_price
     ).order_by(models.Product.name)
 
     products = query.all()
@@ -1475,16 +1476,20 @@ async def inventory_summary(
     total_stock = 0
     total_sold = 0
     total_remaining = 0
+    total_inventory_cost = 0
 
     for p in products:
         remaining = (p.store_quantity or 0) + (p.shop_quantity or 0)
         sold = p.total_sold or 0
         # Total stock = current remaining + total sold (what we've had in total)
         stock = remaining + sold
+        cost_price = p.cost_price or 0
+        inventory_cost = remaining * cost_price
 
         total_stock += stock
         total_sold += sold
         total_remaining += remaining
+        total_inventory_cost += inventory_cost
 
         report_data.append({
             "id": p.id,
@@ -1496,6 +1501,8 @@ async def inventory_summary(
             "store_quantity": p.store_quantity or 0,
             "shop_quantity": p.shop_quantity or 0,
             "reorder_level": p.reorder_level or 0,
+            "cost_price": cost_price,
+            "inventory_cost": inventory_cost,
             "status": "out" if remaining == 0 else "low" if remaining <= (p.reorder_level or 0) else "ok"
         })
 
@@ -1508,6 +1515,7 @@ async def inventory_summary(
             "selected_category": category_id,
             "total_stock": total_stock,
             "total_sold": total_sold,
-            "total_remaining": total_remaining
+            "total_remaining": total_remaining,
+            "total_inventory_cost": total_inventory_cost
         }
     )
