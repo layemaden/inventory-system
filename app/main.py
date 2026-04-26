@@ -166,6 +166,29 @@ def run_migrations():
             )
         """))
 
+        # Add change collection columns to sales table
+        result = conn.execute(text("PRAGMA table_info(sales)"))
+        columns = [row[1] for row in result.fetchall()]
+
+        if 'change_owed' not in columns:
+            conn.execute(text("ALTER TABLE sales ADD COLUMN change_owed FLOAT DEFAULT 0"))
+            print("Added change_owed column to sales")
+        if 'change_collected' not in columns:
+            conn.execute(text("ALTER TABLE sales ADD COLUMN change_collected INTEGER DEFAULT 1"))
+            print("Added change_collected column to sales")
+        if 'change_customer_name' not in columns:
+            conn.execute(text("ALTER TABLE sales ADD COLUMN change_customer_name VARCHAR(100)"))
+            print("Added change_customer_name column to sales")
+        if 'change_collected_at' not in columns:
+            conn.execute(text("ALTER TABLE sales ADD COLUMN change_collected_at DATETIME"))
+            print("Added change_collected_at column to sales")
+        if 'change_collected_by' not in columns:
+            conn.execute(text("ALTER TABLE sales ADD COLUMN change_collected_by INTEGER"))
+            print("Added change_collected_by column to sales")
+        if 'pos_cashback' not in columns:
+            conn.execute(text("ALTER TABLE sales ADD COLUMN pos_cashback FLOAT DEFAULT 0"))
+            print("Added pos_cashback column to sales")
+
         conn.commit()
 
 run_migrations()
@@ -361,9 +384,17 @@ async def dashboard(
         cash_balance_withdrawals = today_balance_withdrawals.cash_withdrawals or 0 if today_balance_withdrawals else 0
         pos_balance_withdrawals = today_balance_withdrawals.pos_withdrawals or 0 if today_balance_withdrawals else 0
 
+        # Get POS cashback total (cash given out from POS payments)
+        pos_cashback_total = db.query(
+            func.sum(models.Sale.pos_cashback)
+        ).filter(
+            func.date(models.Sale.created_at) == today,
+            models.Sale.pos_cashback > 0
+        ).scalar() or 0
+
         # Calculate balances
-        # Cash: Carryover + Cash Sales + Deposits (cash in) - Withdrawals (cash out) - Balance Withdrawals
-        today_cash_balance = prev_cash_carryover + today_cash_sales + deposit_total - withdrawal_amount - cash_balance_withdrawals
+        # Cash: Carryover + Cash Sales + Deposits (cash in) - Withdrawals (cash out) - Balance Withdrawals - POS Cashback
+        today_cash_balance = prev_cash_carryover + today_cash_sales + deposit_total - withdrawal_amount - cash_balance_withdrawals - pos_cashback_total
 
         # POS: Carryover + POS Sales - POS Fee + Withdrawals (POS in) - Deposits (POS out) - Balance Withdrawals
         today_pos_balance = prev_pos_carryover + today_pos_sales - today_pos_fee + withdrawal_total - deposit_amount - pos_balance_withdrawals

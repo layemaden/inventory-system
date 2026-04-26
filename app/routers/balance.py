@@ -67,6 +67,14 @@ def get_balance_summary(db: Session, target_date: date = None):
     cash_withdrawals = balance_withdrawals.cash_withdrawals or 0 if balance_withdrawals else 0
     pos_withdrawals = balance_withdrawals.pos_withdrawals or 0 if balance_withdrawals else 0
 
+    # Get POS cashback (cash given out from POS payments)
+    pos_cashback_total = db.query(
+        func.sum(models.Sale.pos_cashback)
+    ).filter(
+        func.date(models.Sale.created_at) == target_date,
+        models.Sale.pos_cashback > 0
+    ).scalar() or 0
+
     # Calculate POS fee
     pos_fee_setting = db.query(models.SystemSettings).filter(
         models.SystemSettings.key == "pos_fee_percentage"
@@ -89,7 +97,8 @@ def get_balance_summary(db: Session, target_date: date = None):
     ) if pos_fee_percentage > 0 else 0
 
     # Calculate balances
-    cash_balance = prev_cash_carryover + cash_sales + deposit_total - withdrawal_amount - cash_withdrawals
+    # Cash: Carryover + Cash Sales + Deposits (cash in) - Withdrawals (cash out) - Balance Withdrawals - POS Cashback (cash given out)
+    cash_balance = prev_cash_carryover + cash_sales + deposit_total - withdrawal_amount - cash_withdrawals - pos_cashback_total
     pos_balance = prev_pos_carryover + pos_sales - pos_fee + withdrawal_total - deposit_amount - pos_withdrawals
 
     return {
@@ -105,7 +114,8 @@ def get_balance_summary(db: Session, target_date: date = None):
         "deposit_total": deposit_total,
         "deposit_amount": deposit_amount,
         "cash_withdrawals": cash_withdrawals,
-        "pos_withdrawals": pos_withdrawals
+        "pos_withdrawals": pos_withdrawals,
+        "pos_cashback_total": pos_cashback_total
     }
 
 

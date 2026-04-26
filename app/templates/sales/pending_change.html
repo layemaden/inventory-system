@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Pending Change Collections - Inventory System{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">Pending Change Collections</h1>
+    <a href="/sales" class="text-blue-600 hover:underline">Back to POS</a>
+</div>
+
+<!-- Summary -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-sm text-gray-500">Pending Collections</div>
+        <div class="text-2xl font-bold text-orange-600">{{ pending_changes|length }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-sm text-gray-500">Total Amount Owed</div>
+        <div class="text-2xl font-bold text-red-600">
+            N{{ "{:,.0f}".format(pending_changes|sum(attribute='change_owed')) }}
+        </div>
+    </div>
+</div>
+
+<!-- Pending Changes List -->
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sale #</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date/Time</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Sale Total</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Change Owed</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Staff</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for sale in pending_changes %}
+                <tr class="hover:bg-yellow-50" id="row-{{ sale.id }}">
+                    <td class="px-4 py-3 font-medium text-gray-900">#{{ sale.id }}</td>
+                    <td class="px-4 py-3 text-gray-600">
+                        <div>{{ sale.created_at.strftime('%b %d, %Y') }}</div>
+                        <div class="text-xs text-gray-500">{{ sale.created_at.strftime('%H:%M') }}</div>
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if sale.change_customer_name %}
+                        <span class="font-medium text-gray-800">{{ sale.change_customer_name }}</span>
+                        {% else %}
+                        <span class="text-gray-400 italic">Not specified</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right text-gray-600">N{{ "{:,.0f}".format(sale.total_amount) }}</td>
+                    <td class="px-4 py-3 text-right">
+                        <span class="font-bold text-red-600 text-lg">N{{ "{:,.0f}".format(sale.change_owed) }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ sale.user.username }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <button onclick="collectChange({{ sale.id }})"
+                                class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm font-medium">
+                            Mark Collected
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if not pending_changes %}
+    <div class="text-center py-8 text-gray-500">
+        No pending change collections.
+    </div>
+    {% endif %}
+</div>
+
+<script>
+async function collectChange(saleId) {
+    if (!confirm('Mark this change as collected?')) return;
+
+    try {
+        const response = await fetch(`/sales/pending-change/${saleId}/collect`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Remove the row from the table
+            const row = document.getElementById(`row-${saleId}`);
+            row.style.backgroundColor = '#d1fae5';
+            setTimeout(() => {
+                row.remove();
+                // Reload if no more rows
+                if (document.querySelectorAll('tbody tr').length === 0) {
+                    location.reload();
+                }
+            }, 500);
+        } else {
+            alert(data.detail || 'Failed to mark as collected');
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+</script>
+{% endblock %}

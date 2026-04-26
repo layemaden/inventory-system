@@ -90,6 +90,9 @@ async def complete_sale(
     payment_method = body.get("payment_method", "cash")  # "cash", "pos", or "split"
     cash_amount = body.get("cash_amount", 0) or 0
     pos_amount = body.get("pos_amount", 0) or 0
+    change_owed = body.get("change_owed", 0) or 0
+    change_customer_name = body.get("change_customer_name", "")
+    pos_cashback = body.get("pos_cashback", 0) or 0  # Cash given back from POS overpayment
 
     if not items:
         raise HTTPException(status_code=400, detail="No items in cart")
@@ -175,13 +178,25 @@ async def complete_sale(
         cash_amount = 0
         pos_amount = total_amount
 
+    # For POS payments, validate cashback doesn't exceed POS amount minus sale total
+    if payment_method == 'pos' and pos_cashback > 0:
+        if pos_cashback > (pos_amount - total_amount):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cashback (N{pos_cashback:,.0f}) cannot exceed POS overpayment (N{pos_amount - total_amount:,.0f})"
+            )
+
     # Create sale
     sale = models.Sale(
         user_id=user.id,
         total_amount=total_amount,
         payment_method=payment_method,
         cash_amount=cash_amount,
-        pos_amount=pos_amount
+        pos_amount=pos_amount,
+        change_owed=change_owed,
+        change_collected=0 if change_owed > 0 else 1,  # Pending if change is owed
+        change_customer_name=change_customer_name[:100] if change_customer_name else None,
+        pos_cashback=pos_cashback
     )
     db.add(sale)
     db.flush()
@@ -236,6 +251,69 @@ async def sales_history(
             "selected_date": date_str or date.today().isoformat()
         }
     )
+
+
+# ==================== CHANGE COLLECTION ====================
+
+@router.get("/pending-change", response_class=HTMLResponse)
+async def pending_change_list(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_login)
+):
+    """View all pending change collections"""
+    pending = db.query(models.Sale).filter(
+        models.Sale.change_collected == 0,
+        models.Sale.change_owed > 0
+    ).order_by(models.Sale.created_at.desc()).all()
+
+    return templates.TemplateResponse(
+        request, "sales/pending_change.html", {
+            "pending_changes": pending,
+            "user": user
+        }
+    )
+
+
+@router.post("/pending-change/{sale_id}/collect", response_class=JSONResponse)
+async def collect_change(
+    sale_id: int,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_login)
+):
+    """Mark change as collected"""
+    sale = db.query(models.Sale).filter(models.Sale.id == sale_id).first()
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+
+    if sale.change_collected == 1:
+        raise HTTPException(status_code=400, detail="Change already collected")
+
+    sale.change_collected = 1
+    sale.change_collected_at = datetime.now()
+    sale.change_collected_by = user.id
+    db.commit()
+
+    return {"success": True, "message": "Change marked as collected"}
+
+
+@router.get("/api/pending-change-count", response_class=JSONResponse)
+async def pending_change_count(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_login)
+):
+    """Get count of pending change collections"""
+    count = db.query(func.count(models.Sale.id)).filter(
+        models.Sale.change_collected == 0,
+        models.Sale.change_owed > 0
+    ).scalar() or 0
+
+    total_owed = db.query(func.sum(models.Sale.change_owed)).filter(
+        models.Sale.change_collected == 0,
+        models.Sale.change_owed > 0
+    ).scalar() or 0
+
+    return {"count": count, "total_owed": total_owed}
 
 
 @router.get("/{sale_id}", response_class=HTMLResponse)

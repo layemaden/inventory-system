@@ -20,7 +20,7 @@ class User(Base):
     role = Column(String(20), default=UserRole.STAFF)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    sales = relationship("Sale", back_populates="user")
+    sales = relationship("Sale", back_populates="user", foreign_keys="Sale.user_id")
     stock_adjustments = relationship("StockAdjustment", back_populates="user")
 
 
@@ -96,9 +96,16 @@ class Sale(Base):
     payment_method = Column(String(10), default="cash")  # "cash", "pos", or "split"
     cash_amount = Column(Float, default=0)  # Amount paid in cash (for split payments)
     pos_amount = Column(Float, default=0)   # Amount paid via POS (for split payments)
+    change_owed = Column(Float, default=0)  # Change owed to customer
+    change_collected = Column(Integer, default=1)  # 1=collected, 0=pending
+    change_customer_name = Column(String(100), nullable=True)  # Customer name for pending change
+    change_collected_at = Column(DateTime(timezone=True), nullable=True)  # When change was collected
+    change_collected_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # Who gave the change
+    pos_cashback = Column(Float, default=0)  # Cash given back from POS overpayment
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    user = relationship("User", back_populates="sales")
+    user = relationship("User", back_populates="sales", foreign_keys=[user_id])
+    change_collector = relationship("User", foreign_keys=[change_collected_by])
     items = relationship("SaleItem", back_populates="sale", cascade="all, delete-orphan")
 
 

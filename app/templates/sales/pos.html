@@ -47,13 +47,22 @@
     <div class="w-96 bg-white rounded-lg shadow p-4 h-fit sticky top-4">
         <div class="flex justify-between items-center mb-4">
             <h2 class="font-bold text-lg text-gray-800">Current Sale</h2>
-            <button onclick="showPendingCartsModal()" class="text-sm text-orange-600 hover:text-orange-800 flex items-center gap-1">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <span id="pending-count-badge"></span>
-                Pending
-            </button>
+            <div class="flex gap-3">
+                <a href="/sales/pending-change" class="text-sm text-red-600 hover:text-red-800 flex items-center gap-1" id="pending-change-link">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span id="pending-change-badge"></span>
+                    Change
+                </a>
+                <button onclick="showPendingCartsModal()" class="text-sm text-orange-600 hover:text-orange-800 flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span id="pending-count-badge"></span>
+                    Pending
+                </button>
+            </div>
         </div>
 
         <div id="cart-items" class="space-y-2 max-h-96 overflow-y-auto mb-4">
@@ -93,6 +102,35 @@
                     </button>
                 </div>
 
+                <!-- POS Cashback Input (hidden by default) -->
+                <div id="pos-cashback-inputs" class="hidden mt-3 p-3 bg-purple-50 rounded-lg space-y-2">
+                    <div class="flex items-center gap-2 mb-2">
+                        <input type="checkbox" id="has-pos-cashback" onchange="togglePosCashback()"
+                               class="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+                        <label for="has-pos-cashback" class="text-sm font-medium text-purple-700">
+                            Give cash back from POS
+                        </label>
+                    </div>
+                    <div id="pos-cashback-amount-wrapper" class="hidden">
+                        <div class="flex gap-3">
+                            <div class="flex-1">
+                                <label class="block text-xs font-medium text-purple-700 mb-1">POS Amount Received</label>
+                                <input type="number" id="pos-received-amount" min="0" step="100" value="0"
+                                       class="w-full border border-purple-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                       oninput="updatePosCashback()">
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-xs font-medium text-green-700 mb-1">Cash Back</label>
+                                <input type="number" id="pos-cashback-amount" min="0" step="100" value="0"
+                                       class="w-full border border-green-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-500" readonly>
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            Customer pays via POS, receives cash back
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Split Payment Inputs (hidden by default) -->
                 <div id="split-payment-inputs" class="hidden mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
                     <div class="flex gap-3">
@@ -120,6 +158,30 @@
                         <button type="button" onclick="autoFillPOS()" class="flex-1 text-xs py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200">
                             Fill POS
                         </button>
+                    </div>
+                </div>
+
+                <!-- Change Collection -->
+                <div class="mt-3 pt-3 border-t border-gray-200">
+                    <div class="flex items-center gap-2 mb-2">
+                        <input type="checkbox" id="has-pending-change" onchange="toggleChangeInputs()"
+                               class="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500">
+                        <label for="has-pending-change" class="text-sm font-medium text-gray-700">
+                            Change to collect later
+                        </label>
+                    </div>
+                    <div id="change-inputs" class="hidden space-y-2">
+                        <div>
+                            <label class="block text-xs font-medium text-orange-700 mb-1">Change Amount</label>
+                            <input type="number" id="change-amount" min="0" step="50" value="0"
+                                   class="w-full border border-orange-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Customer Name (optional)</label>
+                            <input type="text" id="change-customer-name" placeholder="e.g., John"
+                                   class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                                   maxlength="100">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -341,6 +403,7 @@ function setPaymentMethod(method) {
     const posBtn = document.getElementById('btn-pos');
     const splitBtn = document.getElementById('btn-split');
     const splitInputs = document.getElementById('split-payment-inputs');
+    const posCashbackInputs = document.getElementById('pos-cashback-inputs');
 
     // Reset all buttons
     [cashBtn, posBtn, splitBtn].forEach(btn => {
@@ -348,14 +411,22 @@ function setPaymentMethod(method) {
         btn.classList.add('border-gray-300', 'text-gray-700');
     });
 
+    // Hide all extra inputs
+    splitInputs.classList.add('hidden');
+    posCashbackInputs.classList.add('hidden');
+
     if (method === 'cash') {
         cashBtn.classList.add('border-green-600', 'bg-green-600', 'text-white');
         cashBtn.classList.remove('border-gray-300', 'text-gray-700');
-        splitInputs.classList.add('hidden');
     } else if (method === 'pos') {
         posBtn.classList.add('border-purple-600', 'bg-purple-600', 'text-white');
         posBtn.classList.remove('border-gray-300', 'text-gray-700');
-        splitInputs.classList.add('hidden');
+        posCashbackInputs.classList.remove('hidden');
+        // Reset POS cashback inputs
+        document.getElementById('has-pos-cashback').checked = false;
+        document.getElementById('pos-cashback-amount-wrapper').classList.add('hidden');
+        document.getElementById('pos-received-amount').value = 0;
+        document.getElementById('pos-cashback-amount').value = 0;
     } else if (method === 'split') {
         splitBtn.classList.add('border-orange-600', 'bg-orange-600', 'text-white');
         splitBtn.classList.remove('border-gray-300', 'text-gray-700');
@@ -365,6 +436,28 @@ function setPaymentMethod(method) {
         document.getElementById('split-pos-amount').value = 0;
         updateSplitRemaining();
     }
+}
+
+function togglePosCashback() {
+    const checkbox = document.getElementById('has-pos-cashback');
+    const wrapper = document.getElementById('pos-cashback-amount-wrapper');
+    if (checkbox.checked) {
+        wrapper.classList.remove('hidden');
+        // Pre-fill with cart total
+        document.getElementById('pos-received-amount').value = getCartTotal();
+        updatePosCashback();
+    } else {
+        wrapper.classList.add('hidden');
+        document.getElementById('pos-received-amount').value = 0;
+        document.getElementById('pos-cashback-amount').value = 0;
+    }
+}
+
+function updatePosCashback() {
+    const total = getCartTotal();
+    const posReceived = parseFloat(document.getElementById('pos-received-amount').value) || 0;
+    const cashback = Math.max(0, posReceived - total);
+    document.getElementById('pos-cashback-amount').value = cashback;
 }
 
 function getCartTotal() {
@@ -716,17 +809,32 @@ function renderCart() {
 async function completeSale() {
     if (cart.length === 0) return;
 
+    const total = getCartTotal();
+
     // Validate split payment
     let cashAmount = 0;
     let posAmount = 0;
+    let posCashback = 0;
+
     if (currentPaymentMethod === 'split') {
         cashAmount = parseFloat(document.getElementById('split-cash-amount').value) || 0;
         posAmount = parseFloat(document.getElementById('split-pos-amount').value) || 0;
-        const total = getCartTotal();
 
         if (cashAmount + posAmount < total) {
             showAlert(`Split payment total (N${(cashAmount + posAmount).toLocaleString()}) is less than sale total (N${total.toLocaleString()})`, 'Insufficient Payment', 'error');
             return;
+        }
+    } else if (currentPaymentMethod === 'pos') {
+        // Check for POS cashback
+        const hasPosCashback = document.getElementById('has-pos-cashback').checked;
+        if (hasPosCashback) {
+            const posReceived = parseFloat(document.getElementById('pos-received-amount').value) || 0;
+            posCashback = parseFloat(document.getElementById('pos-cashback-amount').value) || 0;
+
+            if (posReceived < total) {
+                showAlert(`POS amount received (N${posReceived.toLocaleString()}) is less than sale total (N${total.toLocaleString()})`, 'Insufficient Payment', 'error');
+                return;
+            }
         }
     }
 
@@ -751,9 +859,17 @@ async function completeSale() {
         pack_id: item.packId ? parseInt(item.packId) : null
     }));
 
+    // Get change collection data
+    const hasPendingChange = document.getElementById('has-pending-change').checked;
+    const changeOwed = hasPendingChange ? (parseFloat(document.getElementById('change-amount').value) || 0) : 0;
+    const changeCustomerName = hasPendingChange ? document.getElementById('change-customer-name').value.trim() : '';
+
     const requestBody = {
         items,
-        payment_method: currentPaymentMethod
+        payment_method: currentPaymentMethod,
+        change_owed: changeOwed,
+        change_customer_name: changeCustomerName,
+        pos_cashback: posCashback
     };
 
     // Add split amounts if split payment
@@ -798,12 +914,41 @@ async function completeSale() {
                 badge.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800';
             }
 
+            // Show change owed info if applicable
+            if (changeOwed > 0) {
+                document.getElementById('sale-total').innerHTML = `N${data.total.toLocaleString()}<br><span class="text-sm text-orange-600">Change owed: N${changeOwed.toLocaleString()}${changeCustomerName ? ' to ' + changeCustomerName : ''}</span>`;
+            }
+
+            // Show POS cashback info if applicable
+            if (posCashback > 0) {
+                const currentHtml = document.getElementById('sale-total').innerHTML;
+                document.getElementById('sale-total').innerHTML = currentHtml + `<br><span class="text-sm text-blue-600">POS Cashback given: N${posCashback.toLocaleString()}</span>`;
+            }
+
             document.getElementById('success-modal').classList.remove('hidden');
 
             prepareReceipt(lastSaleData);
             resetCart();
             currentPaymentMethod = 'cash';
             setPaymentMethod('cash');
+
+            // Reset change inputs
+            document.getElementById('has-pending-change').checked = false;
+            document.getElementById('change-inputs').classList.add('hidden');
+            document.getElementById('change-amount').value = 0;
+            document.getElementById('change-customer-name').value = '';
+            loadPendingChangeCount();
+
+            // Reset POS cashback inputs
+            const posCashbackCheckbox = document.getElementById('has-pos-cashback');
+            const posCashbackWrapper = document.getElementById('pos-cashback-amount-wrapper');
+            if (posCashbackCheckbox) {
+                posCashbackCheckbox.checked = false;
+            }
+            if (posCashbackWrapper) {
+                posCashbackWrapper.classList.add('hidden');
+                document.getElementById('pos-cashback-amount').value = 0;
+            }
         } else {
             showAlert(data.detail || 'Failed to complete sale', 'Error', 'error');
         }
@@ -1084,9 +1229,43 @@ async function deletePendingCart(cartId) {
     }
 }
 
+// ==================== CHANGE COLLECTION FUNCTIONS ====================
+
+function toggleChangeInputs() {
+    const checkbox = document.getElementById('has-pending-change');
+    const inputs = document.getElementById('change-inputs');
+    if (checkbox.checked) {
+        inputs.classList.remove('hidden');
+    } else {
+        inputs.classList.add('hidden');
+        document.getElementById('change-amount').value = 0;
+        document.getElementById('change-customer-name').value = '';
+    }
+}
+
+async function loadPendingChangeCount() {
+    try {
+        const response = await fetch('/sales/api/pending-change-count');
+        const data = await response.json();
+        const badge = document.getElementById('pending-change-badge');
+        const link = document.getElementById('pending-change-link');
+        if (data.count > 0) {
+            badge.textContent = `(${data.count})`;
+            link.classList.remove('text-red-600', 'hover:text-red-800');
+            link.classList.add('text-red-600', 'hover:text-red-800', 'font-medium');
+        } else {
+            badge.textContent = '';
+            link.classList.remove('font-medium');
+        }
+    } catch (error) {
+        console.error('Error loading pending change count:', error);
+    }
+}
+
 // Load pending carts count on page load
 document.addEventListener('DOMContentLoaded', function() {
     loadPendingCartsCount();
+    loadPendingChangeCount();
 });
 </script>
 {% endblock %}
