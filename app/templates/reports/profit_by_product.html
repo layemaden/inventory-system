@@ -50,10 +50,10 @@
                 <td class="px-6 py-4 font-medium text-gray-900">{{ row.product }}</td>
                 <td class="px-6 py-4 text-gray-600">{{ row.category }}</td>
                 <td class="px-6 py-4 text-right text-gray-600">{{ row.qty_sold }}</td>
-                <td class="px-6 py-4 text-right text-gray-600">N{{ "{:,.0f}".format(row.revenue) }}</td>
-                <td class="px-6 py-4 text-right text-gray-600">N{{ "{:,.0f}".format(row.cost) }}</td>
+                <td class="px-6 py-4 text-right text-gray-600">N{{ "{:,.2f}".format(row.revenue) }}</td>
+                <td class="px-6 py-4 text-right text-gray-600">N{{ "{:,.2f}".format(row.cost) }}</td>
                 <td class="px-6 py-4 text-right font-bold {% if row.profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                    N{{ "{:,.0f}".format(row.profit) }}
+                    N{{ "{:,.2f}".format(row.profit) }}
                 </td>
                 <td class="px-6 py-4 text-right {% if row.margin >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
                     {{ row.margin }}%

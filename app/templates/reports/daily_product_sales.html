@@ -64,17 +64,17 @@
     </div>
     <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-500">Total Units</div>
-        <div class="text-xl font-bold text-purple-600">{{ "{:,.0f}".format(total_units) }}</div>
+        <div class="text-xl font-bold text-purple-600">{{ "{:,.2f}".format(total_units) }}</div>
     </div>
     <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-500">Total Revenue</div>
-        <div class="text-xl font-bold text-green-600">N{{ "{:,.0f}".format(total_revenue) }}</div>
+        <div class="text-xl font-bold text-green-600">N{{ "{:,.2f}".format(total_revenue) }}</div>
     </div>
     {% if is_admin %}
     <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-500">Total Profit</div>
         <div class="text-xl font-bold {% if total_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-            N{{ "{:,.0f}".format(total_profit) }}
+            N{{ "{:,.2f}".format(total_profit) }}
         </div>
     </div>
     {% endif %}
@@ -108,31 +108,31 @@
                 <tr class="hover:bg-gray-50">
                     <td class="px-4 py-3">
                         <div class="font-medium text-gray-900">{{ item.name }}</div>
-                        <div class="text-xs text-gray-500">N{{ "{:,.0f}".format(item.selling_price) }}/unit</div>
+                        <div class="text-xs text-gray-500">N{{ "{:,.2f}".format(item.selling_price) }}/unit</div>
                     </td>
                     <td class="px-4 py-3 text-gray-600">{{ item.category }}</td>
                     <td class="px-4 py-3 text-right">
                         <span class="text-blue-600 font-medium">{{ item.sale_count }}</span>
                     </td>
                     <td class="px-4 py-3 text-right">
-                        <span class="text-purple-600 font-medium">{{ "{:,.0f}".format(item.units_sold) }}</span>
+                        <span class="text-purple-600 font-medium">{{ "{:,.2f}".format(item.units_sold) }}</span>
                     </td>
                     <td class="px-4 py-3 text-right">
                         {% if item.packs_sold > 0 %}
-                        <span class="text-green-600">{{ "{:,.0f}".format(item.packs_sold) }}</span>
+                        <span class="text-green-600">{{ "{:,.2f}".format(item.packs_sold) }}</span>
                         {% else %}
                         <span class="text-gray-400">0</span>
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-right font-medium text-green-600">
-                        N{{ "{:,.0f}".format(item.revenue) }}
+                        N{{ "{:,.2f}".format(item.revenue) }}
                     </td>
                     {% if is_admin %}
                     <td class="px-4 py-3 text-right text-gray-600">
-                        N{{ "{:,.0f}".format(item.cost) }}
+                        N{{ "{:,.2f}".format(item.cost) }}
                     </td>
                     <td class="px-4 py-3 text-right font-medium {% if item.profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                        N{{ "{:,.0f}".format(item.profit) }}
+                        N{{ "{:,.2f}".format(item.profit) }}
                     </td>
                     <td class="px-4 py-3 text-right">
                         <span class="{% if item.margin >= 20 %}text-green-600{% elif item.margin >= 10 %}text-yellow-600{% else %}text-red-600{% endif %}">
@@ -155,13 +155,13 @@
                 <tr>
                     <td class="px-4 py-3 text-gray-800" colspan="2">Total</td>
                     <td class="px-4 py-3 text-right text-blue-600">{{ report_data | sum(attribute='sale_count') }}</td>
-                    <td class="px-4 py-3 text-right text-purple-600">{{ "{:,.0f}".format(total_units) }}</td>
-                    <td class="px-4 py-3 text-right text-green-600">{{ "{:,.0f}".format(report_data | sum(attribute='packs_sold')) }}</td>
-                    <td class="px-4 py-3 text-right text-green-600">N{{ "{:,.0f}".format(total_revenue) }}</td>
+                    <td class="px-4 py-3 text-right text-purple-600">{{ "{:,.2f}".format(total_units) }}</td>
+                    <td class="px-4 py-3 text-right text-green-600">{{ "{:,.2f}".format(report_data | sum(attribute='packs_sold')) }}</td>
+                    <td class="px-4 py-3 text-right text-green-600">N{{ "{:,.2f}".format(total_revenue) }}</td>
                     {% if is_admin %}
-                    <td class="px-4 py-3 text-right text-gray-600">N{{ "{:,.0f}".format(total_cost) }}</td>
+                    <td class="px-4 py-3 text-right text-gray-600">N{{ "{:,.2f}".format(total_cost) }}</td>
                     <td class="px-4 py-3 text-right {% if total_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                        N{{ "{:,.0f}".format(total_profit) }}
+                        N{{ "{:,.2f}".format(total_profit) }}
                     </td>
                     <td class="px-4 py-3 text-right text-blue-600">{{ total_margin }}%</td>
                     {% endif %}

@@ -17,7 +17,7 @@
     <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-500">Total Amount Owed</div>
         <div class="text-2xl font-bold text-red-600">
-            N{{ "{:,.0f}".format(pending_changes|sum(attribute='change_owed')) }}
+            N{{ "{:,.2f}".format(pending_changes|sum(attribute='change_owed')) }}
         </div>
     </div>
 </div>
@@ -52,9 +52,9 @@
                         <span class="text-gray-400 italic">Not specified</span>
                         {% endif %}
                     </td>
-                    <td class="px-4 py-3 text-right text-gray-600">N{{ "{:,.0f}".format(sale.total_amount) }}</td>
+                    <td class="px-4 py-3 text-right text-gray-600">N{{ "{:,.2f}".format(sale.total_amount) }}</td>
                     <td class="px-4 py-3 text-right">
-                        <span class="font-bold text-red-600 text-lg">N{{ "{:,.0f}".format(sale.change_owed) }}</span>
+                        <span class="font-bold text-red-600 text-lg">N{{ "{:,.2f}".format(sale.change_owed) }}</span>
                     </td>
                     <td class="px-4 py-3 text-gray-600">{{ sale.user.username }}</td>
                     <td class="px-4 py-3 text-center">

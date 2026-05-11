@@ -28,9 +28,9 @@
                     {% elif sale.payment_method == 'split' %}
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">SPLIT</span>
                     <div class="mt-1 text-sm">
-                        <span class="text-green-700">Cash: N{{ "{:,.0f}".format(sale.cash_amount or 0) }}</span>
+                        <span class="text-green-700">Cash: N{{ "{:,.2f}".format(sale.cash_amount or 0) }}</span>
                         <span class="text-gray-400 mx-1">|</span>
-                        <span class="text-purple-700">POS: N{{ "{:,.0f}".format(sale.pos_amount or 0) }}</span>
+                        <span class="text-purple-700">POS: N{{ "{:,.2f}".format(sale.pos_amount or 0) }}</span>
                     </div>
                     {% else %}
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">CASH</span>
@@ -47,7 +47,7 @@
                 <div>
                     <div class="font-medium">{{ item.product.name }}</div>
                     <div class="text-sm text-gray-500">
-                        N{{ "{:,.0f}".format(item.unit_price) }} x {{ "{:g}".format(item.quantity) }}
+                        N{{ "{:,.2f}".format(item.unit_price) }} x {{ "{:g}".format(item.quantity) }}
                         {% if item.sale_type == 'pack' %}
                         <span class="text-blue-600">({% if item.pack %}{{ item.pack.name }}{% else %}pack{% endif %})</span>
                         {% endif %}
@@ -57,9 +57,9 @@
                     {% endif %}
                 </div>
                 <div class="text-right">
-                    <div class="font-bold">N{{ "{:,.0f}".format(item.unit_price * item.quantity) }}</div>
+                    <div class="font-bold">N{{ "{:,.2f}".format(item.unit_price * item.quantity) }}</div>
                     {% if is_admin %}
-                    <div class="text-xs text-gray-500">Cost: N{{ "{:,.0f}".format(item.cost_price) }}</div>
+                    <div class="text-xs text-gray-500">Cost: N{{ "{:,.2f}".format(item.cost_price) }}</div>
                     {% endif %}
                 </div>
             </div>
@@ -70,7 +70,7 @@
         <div class="border-t pt-4">
             <div class="flex justify-between text-lg font-bold">
                 <span>Total</span>
-                <span class="text-green-600">N{{ "{:,.0f}".format(sale.total_amount) }}</span>
+                <span class="text-green-600">N{{ "{:,.2f}".format(sale.total_amount) }}</span>
             </div>
 
             {% if is_admin %}
@@ -81,11 +81,11 @@
             {% set profit = sale.total_amount - total_cost.value %}
             <div class="flex justify-between mt-2 text-gray-600">
                 <span>Total Cost</span>
-                <span>N{{ "{:,.0f}".format(total_cost.value) }}</span>
+                <span>N{{ "{:,.2f}".format(total_cost.value) }}</span>
             </div>
             <div class="flex justify-between mt-2 font-bold {% if profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
                 <span>Profit</span>
-                <span>N{{ "{:,.0f}".format(profit) }}</span>
+                <span>N{{ "{:,.2f}".format(profit) }}</span>
             </div>
             {% endif %}
         </div>
@@ -115,15 +115,15 @@
             <div><strong>Receipt #:</strong> {{ sale.id }}</div>
             <div><strong>Date:</strong> {{ sale.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
             <div><strong>Cashier:</strong> {{ sale.user.username }}</div>
-            <div><strong>Payment:</strong> {% if sale.payment_method == 'split' %}SPLIT (Cash: N{{ "{:,.0f}".format(sale.cash_amount or 0) }}, POS: N{{ "{:,.0f}".format(sale.pos_amount or 0) }}){% else %}{{ (sale.payment_method or 'cash')|upper }}{% endif %}</div>
+            <div><strong>Payment:</strong> {% if sale.payment_method == 'split' %}SPLIT (Cash: N{{ "{:,.2f}".format(sale.cash_amount or 0) }}, POS: N{{ "{:,.2f}".format(sale.pos_amount or 0) }}){% else %}{{ (sale.payment_method or 'cash')|upper }}{% endif %}</div>
         </div>
         <div style="margin: 10px 0;">
             {% for item in sale.items %}
             <div style="margin-bottom: 5px;">
                 <div>{{ item.product.name }}</div>
                 <div style="display: flex; justify-content: space-between; padding-left: 10px;">
-                    <span>{{ "{:g}".format(item.quantity) }} x N{{ "{:,.0f}".format(item.unit_price) }}</span>
-                    <span>N{{ "{:,.0f}".format(item.unit_price * item.quantity) }}</span>
+                    <span>{{ "{:g}".format(item.quantity) }} x N{{ "{:,.2f}".format(item.unit_price) }}</span>
+                    <span>N{{ "{:,.2f}".format(item.unit_price * item.quantity) }}</span>
                 </div>
             </div>
             {% endfor %}
@@ -131,7 +131,7 @@
         <div style="border-top: 1px dashed #000; padding-top: 5px; margin-top: 10px;">
             <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: bold;">
                 <span>TOTAL:</span>
-                <span>N{{ "{:,.0f}".format(sale.total_amount) }}</span>
+                <span>N{{ "{:,.2f}".format(sale.total_amount) }}</span>
             </div>
         </div>
         <div style="text-align: center; margin-top: 15px; font-size: 10px;">

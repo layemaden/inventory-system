@@ -21,15 +21,15 @@
         <div>
             <div class="text-indigo-600 text-sm font-medium mb-2">Total Balance</div>
             <div class="text-4xl font-bold {% if (cash_balance + pos_balance) >= 0 %}text-indigo-600{% else %}text-red-600{% endif %}">
-                N{{ "{:,.0f}".format(cash_balance + pos_balance) }}
+                N{{ "{:,.2f}".format(cash_balance + pos_balance) }}
             </div>
         </div>
         <div class="text-right text-sm">
             <div class="text-gray-500">Cash + POS Balance</div>
             <div class="mt-1">
-                <span class="text-green-600">N{{ "{:,.0f}".format(cash_balance) }}</span>
+                <span class="text-green-600">N{{ "{:,.2f}".format(cash_balance) }}</span>
                 <span class="text-gray-400 mx-1">+</span>
-                <span class="text-purple-600">N{{ "{:,.0f}".format(pos_balance) }}</span>
+                <span class="text-purple-600">N{{ "{:,.2f}".format(pos_balance) }}</span>
             </div>
         </div>
     </div>
@@ -41,28 +41,28 @@
     <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
         <div class="text-green-600 text-sm font-medium mb-2">Cash Balance</div>
         <div class="text-3xl font-bold {% if cash_balance >= 0 %}text-green-600{% else %}text-red-600{% endif %} mb-3">
-            N{{ "{:,.0f}".format(cash_balance) }}
+            N{{ "{:,.2f}".format(cash_balance) }}
         </div>
         <div class="space-y-1 text-sm">
             <div class="flex justify-between">
                 <span class="text-gray-500">+ Cash Sales:</span>
-                <span class="text-green-600">N{{ "{:,.0f}".format(cash_sales) }}</span>
+                <span class="text-green-600">N{{ "{:,.2f}".format(cash_sales) }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-gray-500">+ Deposits:</span>
-                <span class="text-green-600">N{{ "{:,.0f}".format(deposit_total) }}</span>
+                <span class="text-green-600">N{{ "{:,.2f}".format(deposit_total) }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-gray-500">- POS Banking Out:</span>
-                <span class="text-red-600">N{{ "{:,.0f}".format(withdrawal_amount) }}</span>
+                <span class="text-red-600">N{{ "{:,.2f}".format(withdrawal_amount) }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-gray-500">- Balance Withdrawn:</span>
-                <span class="text-orange-600">N{{ "{:,.0f}".format(cash_balance_withdrawals) }}</span>
+                <span class="text-orange-600">N{{ "{:,.2f}".format(cash_balance_withdrawals) }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-gray-500">+ Prev Day Carryover:</span>
-                <span>N{{ "{:,.0f}".format(prev_cash_carryover) }}</span>
+                <span>N{{ "{:,.2f}".format(prev_cash_carryover) }}</span>
             </div>
         </div>
     </div>
@@ -71,32 +71,32 @@
     <div class="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
         <div class="text-purple-600 text-sm font-medium mb-2">POS Balance</div>
         <div class="text-3xl font-bold {% if pos_balance >= 0 %}text-purple-600{% else %}text-red-600{% endif %} mb-3">
-            N{{ "{:,.0f}".format(pos_balance) }}
+            N{{ "{:,.2f}".format(pos_balance) }}
         </div>
         <div class="space-y-1 text-sm">
             <div class="flex justify-between">
                 <span class="text-gray-500">+ POS Sales:</span>
-                <span class="text-purple-600">N{{ "{:,.0f}".format(pos_sales) }}</span>
+                <span class="text-purple-600">N{{ "{:,.2f}".format(pos_sales) }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-gray-500">- POS Fee ({{ pos_fee_percentage }}%):</span>
-                <span class="text-red-600">N{{ "{:,.0f}".format(pos_fee) }}</span>
+                <span class="text-red-600">N{{ "{:,.2f}".format(pos_fee) }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-gray-500">+ POS Banking In:</span>
-                <span class="text-green-600">N{{ "{:,.0f}".format(withdrawal_total) }}</span>
+                <span class="text-green-600">N{{ "{:,.2f}".format(withdrawal_total) }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-gray-500">- POS Banking Out:</span>
-                <span class="text-red-600">N{{ "{:,.0f}".format(deposit_amount) }}</span>
+                <span class="text-red-600">N{{ "{:,.2f}".format(deposit_amount) }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-gray-500">- Balance Withdrawn:</span>
-                <span class="text-orange-600">N{{ "{:,.0f}".format(pos_balance_withdrawals) }}</span>
+                <span class="text-orange-600">N{{ "{:,.2f}".format(pos_balance_withdrawals) }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-gray-500">+ Prev Day Carryover:</span>
-                <span>N{{ "{:,.0f}".format(prev_pos_carryover) }}</span>
+                <span>N{{ "{:,.2f}".format(prev_pos_carryover) }}</span>
             </div>
         </div>
     </div>
@@ -105,16 +105,16 @@
     <div class="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
         <div class="text-blue-600 text-sm font-medium mb-2">Total Sales</div>
         <div class="text-3xl font-bold text-blue-600 mb-3">
-            N{{ "{:,.0f}".format(total_sales) }}
+            N{{ "{:,.2f}".format(total_sales) }}
         </div>
         <div class="space-y-1 text-sm">
             <div class="flex justify-between">
                 <span class="text-gray-500">Cash Sales ({{ cash_count }}):</span>
-                <span class="text-green-600">N{{ "{:,.0f}".format(cash_sales) }}</span>
+                <span class="text-green-600">N{{ "{:,.2f}".format(cash_sales) }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-gray-500">POS Sales ({{ pos_count }}):</span>
-                <span class="text-purple-600">N{{ "{:,.0f}".format(pos_sales) }}</span>
+                <span class="text-purple-600">N{{ "{:,.2f}".format(pos_sales) }}</span>
             </div>
         </div>
     </div>
@@ -130,11 +130,11 @@
             <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
                     <span class="text-gray-500">Total (from customer):</span>
-                    <span class="text-purple-600 font-medium">N{{ "{:,.0f}".format(withdrawal_total) }}</span>
+                    <span class="text-purple-600 font-medium">N{{ "{:,.2f}".format(withdrawal_total) }}</span>
                 </div>
                 <div class="flex justify-between">
                     <span class="text-gray-500">Amount (cash out):</span>
-                    <span class="text-red-600 font-medium">N{{ "{:,.0f}".format(withdrawal_amount) }}</span>
+                    <span class="text-red-600 font-medium">N{{ "{:,.2f}".format(withdrawal_amount) }}</span>
                 </div>
             </div>
         </div>
@@ -145,11 +145,11 @@
             <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
                     <span class="text-gray-500">Total (cash in):</span>
-                    <span class="text-green-600 font-medium">N{{ "{:,.0f}".format(deposit_total) }}</span>
+                    <span class="text-green-600 font-medium">N{{ "{:,.2f}".format(deposit_total) }}</span>
                 </div>
                 <div class="flex justify-between">
                     <span class="text-gray-500">Amount (to customer):</span>
-                    <span class="text-purple-600 font-medium">N{{ "{:,.0f}".format(deposit_amount) }}</span>
+                    <span class="text-purple-600 font-medium">N{{ "{:,.2f}".format(deposit_amount) }}</span>
                 </div>
             </div>
         </div>
@@ -158,7 +158,7 @@
         <div class="bg-gray-50 rounded-lg p-4">
             <div class="text-gray-600 text-sm font-medium mb-2">POS Banking Profit</div>
             <div class="text-2xl font-bold text-green-600">
-                N{{ "{:,.0f}".format(pos_banking_profit) }}
+                N{{ "{:,.2f}".format(pos_banking_profit) }}
             </div>
             <div class="text-xs text-gray-500 mt-1">From transaction fees</div>
         </div>
@@ -181,7 +181,7 @@
             <p class="font-medium text-purple-600 mb-2">POS Balance =</p>
             <p class="mb-2">POS Sales - POS Fee + Withdrawal Total - Deposit Amount + Previous Day's POS Carryover</p>
             <div class="text-xs text-gray-500 space-y-1">
-                <p><strong>POS Fee:</strong> {{ pos_fee_percentage }}% of POS sales, capped at N{{ "{:,.0f}".format(pos_fee_cap) }}.</p>
+                <p><strong>POS Fee:</strong> {{ pos_fee_percentage }}% of POS sales, capped at N{{ "{:,.2f}".format(pos_fee_cap) }}.</p>
                 <p><strong>Withdrawal:</strong> POS In = Total (full amount from customer's account, includes fee).</p>
                 <p><strong>Deposit:</strong> POS Out = Amount (transferred to customer's account, excludes fee).</p>
             </div>

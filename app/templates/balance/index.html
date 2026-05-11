@@ -15,7 +15,7 @@
             <div>
                 <div class="text-gray-500 text-sm">Cash Balance</div>
                 <div class="text-3xl font-bold {% if summary.cash_balance >= 0 %}text-green-600{% else %}text-red-600{% endif %}" id="cash-balance">
-                    N{{ "{:,.0f}".format(summary.cash_balance) }}
+                    N{{ "{:,.2f}".format(summary.cash_balance) }}
                 </div>
                 <div class="text-xs text-gray-500 mt-1">Available for withdrawal</div>
             </div>
@@ -32,7 +32,7 @@
             <div>
                 <div class="text-gray-500 text-sm">POS Balance</div>
                 <div class="text-3xl font-bold {% if summary.pos_balance >= 0 %}text-purple-600{% else %}text-red-600{% endif %}" id="pos-balance">
-                    N{{ "{:,.0f}".format(summary.pos_balance) }}
+                    N{{ "{:,.2f}".format(summary.pos_balance) }}
                 </div>
                 <div class="text-xs text-gray-500 mt-1">Available for withdrawal</div>
             </div>
@@ -49,19 +49,19 @@
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-white rounded-lg shadow p-4 border-l-4 border-green-400">
         <div class="text-gray-500 text-sm">Cash Withdrawn Today</div>
-        <div class="text-xl font-bold text-green-600">N{{ "{:,.0f}".format(summary.cash_withdrawals) }}</div>
+        <div class="text-xl font-bold text-green-600">N{{ "{:,.2f}".format(summary.cash_withdrawals) }}</div>
     </div>
     <div class="bg-white rounded-lg shadow p-4 border-l-4 border-purple-400">
         <div class="text-gray-500 text-sm">POS Withdrawn Today</div>
-        <div class="text-xl font-bold text-purple-600">N{{ "{:,.0f}".format(summary.pos_withdrawals) }}</div>
+        <div class="text-xl font-bold text-purple-600">N{{ "{:,.2f}".format(summary.pos_withdrawals) }}</div>
     </div>
     <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-400">
         <div class="text-gray-500 text-sm">Cash Sales Today</div>
-        <div class="text-xl font-bold text-blue-600">N{{ "{:,.0f}".format(summary.cash_sales) }}</div>
+        <div class="text-xl font-bold text-blue-600">N{{ "{:,.2f}".format(summary.cash_sales) }}</div>
     </div>
     <div class="bg-white rounded-lg shadow p-4 border-l-4 border-indigo-400">
         <div class="text-gray-500 text-sm">POS Sales Today</div>
-        <div class="text-xl font-bold text-indigo-600">N{{ "{:,.0f}".format(summary.pos_sales) }}</div>
+        <div class="text-xl font-bold text-indigo-600">N{{ "{:,.2f}".format(summary.pos_sales) }}</div>
     </div>
 </div>
 
@@ -85,10 +85,10 @@
         <div class="space-y-4">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Amount</label>
-                <input type="number" id="amount" min="0" step="100" placeholder="Enter amount to withdraw"
+                <input type="number" id="amount" min="0" step="0.01" placeholder="Enter amount to withdraw"
                        class="w-full border rounded-lg px-4 py-3 text-lg focus:ring-2 focus:ring-blue-500">
                 <p class="text-xs text-gray-500 mt-1">
-                    Available: <span id="available-balance" class="font-medium text-green-600">N{{ "{:,.0f}".format(summary.cash_balance) }}</span>
+                    Available: <span id="available-balance" class="font-medium text-green-600">N{{ "{:,.2f}".format(summary.cash_balance) }}</span>
                 </p>
             </div>
 
@@ -125,7 +125,7 @@
                         </div>
                         <div class="text-right flex items-center gap-2">
                             <div class="font-bold {% if w.withdrawal_type == 'cash' %}text-green-600{% else %}text-purple-600{% endif %}">
-                                N{{ "{:,.0f}".format(w.amount) }}
+                                N{{ "{:,.2f}".format(w.amount) }}
                             </div>
                             {% if is_admin %}
                             <button onclick="deleteWithdrawal({{ w.id }})" class="text-red-500 hover:text-red-700" title="Delete">
@@ -195,7 +195,7 @@ function setWithdrawalType(type) {
         submitBtn.textContent = 'Withdraw Cash';
         submitBtn.classList.remove('bg-purple-600', 'hover:bg-purple-700');
         submitBtn.classList.add('bg-green-600', 'hover:bg-green-700');
-        availableBalance.textContent = 'N' + cashBalance.toLocaleString();
+        availableBalance.textContent = 'N' + cashBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         availableBalance.classList.remove('text-purple-600');
         availableBalance.classList.add('text-green-600');
     } else {
@@ -206,7 +206,7 @@ function setWithdrawalType(type) {
         submitBtn.textContent = 'Withdraw from POS';
         submitBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
         submitBtn.classList.add('bg-purple-600', 'hover:bg-purple-700');
-        availableBalance.textContent = 'N' + posBalance.toLocaleString();
+        availableBalance.textContent = 'N' + posBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         availableBalance.classList.remove('text-green-600');
         availableBalance.classList.add('text-purple-600');
     }
@@ -223,12 +223,12 @@ async function submitWithdrawal() {
 
     const maxBalance = currentType === 'cash' ? cashBalance : posBalance;
     if (amount > maxBalance) {
-        showAlert(`Insufficient ${currentType} balance. Available: N${maxBalance.toLocaleString()}`, 'Error', 'error');
+        showAlert(`Insufficient ${currentType} balance. Available: N${maxBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, 'Error', 'error');
         return;
     }
 
     const confirmed = await showConfirm(
-        `Withdraw N${amount.toLocaleString()} from ${currentType.toUpperCase()} balance?`,
+        `Withdraw N${amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} from ${currentType.toUpperCase()} balance?`,
         'Confirm Withdrawal',
         {confirmText: 'Withdraw', danger: false}
     );
@@ -250,10 +250,10 @@ async function submitWithdrawal() {
 
         if (data.success) {
             document.getElementById('success-id').textContent = data.withdrawal_id;
-            document.getElementById('success-amount').textContent = 'N' + data.amount.toLocaleString();
+            document.getElementById('success-amount').textContent = 'N' + Number(data.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
             document.getElementById('success-type').textContent = data.withdrawal_type.toUpperCase();
-            document.getElementById('new-cash').textContent = 'N' + Math.round(data.new_cash_balance).toLocaleString();
-            document.getElementById('new-pos').textContent = 'N' + Math.round(data.new_pos_balance).toLocaleString();
+            document.getElementById('new-cash').textContent = 'N' + Number(data.new_cash_balance).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('new-pos').textContent = 'N' + Number(data.new_pos_balance).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
             document.getElementById('success-modal').classList.remove('hidden');
 
             document.getElementById('amount').value = '';

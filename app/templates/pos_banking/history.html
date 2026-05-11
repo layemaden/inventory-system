@@ -39,19 +39,19 @@
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">
         <div class="text-gray-500 text-sm">Total Withdrawals</div>
-        <div class="text-xl font-bold text-red-600">N{{ "{:,.0f}".format(summary.total_withdrawals) }}</div>
+        <div class="text-xl font-bold text-red-600">N{{ "{:,.2f}".format(summary.total_withdrawals) }}</div>
     </div>
     <div class="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
         <div class="text-gray-500 text-sm">Total Deposits</div>
-        <div class="text-xl font-bold text-green-600">N{{ "{:,.0f}".format(summary.total_deposits) }}</div>
+        <div class="text-xl font-bold text-green-600">N{{ "{:,.2f}".format(summary.total_deposits) }}</div>
     </div>
     <div class="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
         <div class="text-gray-500 text-sm">Withdrawal Charges</div>
-        <div class="text-xl font-bold text-orange-600">N{{ "{:,.0f}".format(summary.withdrawal_charges) }}</div>
+        <div class="text-xl font-bold text-orange-600">N{{ "{:,.2f}".format(summary.withdrawal_charges) }}</div>
     </div>
     <div class="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
         <div class="text-gray-500 text-sm">Deposit Charges</div>
-        <div class="text-xl font-bold text-purple-600">N{{ "{:,.0f}".format(summary.deposit_charges) }}</div>
+        <div class="text-xl font-bold text-purple-600">N{{ "{:,.2f}".format(summary.deposit_charges) }}</div>
     </div>
 </div>
 
@@ -95,10 +95,10 @@
                     <div class="text-xs text-gray-400">{{ t.customer_phone }}</div>
                     {% endif %}
                 </td>
-                <td class="px-4 py-3 text-right font-medium">N{{ "{:,.0f}".format(t.amount) }}</td>
-                <td class="px-4 py-3 text-right text-orange-600">N{{ "{:,.0f}".format(t.charge) }}</td>
+                <td class="px-4 py-3 text-right font-medium">N{{ "{:,.2f}".format(t.amount) }}</td>
+                <td class="px-4 py-3 text-right text-orange-600">N{{ "{:,.2f}".format(t.charge) }}</td>
                 <td class="px-4 py-3 text-right font-bold {% if t.transaction_type == 'withdrawal' %}text-red-600{% else %}text-green-600{% endif %}">
-                    N{{ "{:,.0f}".format(t.total) }}
+                    N{{ "{:,.2f}".format(t.total) }}
                 </td>
                 <td class="px-4 py-3 text-gray-600">{{ t.user.username }}</td>
                 {% if is_admin %}

@@ -71,10 +71,10 @@
                         <div class="flex justify-between items-start config-display">
                             <div>
                                 <div class="font-medium">
-                                    N{{ "{:,.0f}".format(config.min_amount) }} - N{{ "{:,.0f}".format(config.max_amount) }}
+                                    N{{ "{:,.2f}".format(config.min_amount) }} - N{{ "{:,.2f}".format(config.max_amount) }}
                                 </div>
                                 <div class="text-sm text-gray-600">
-                                    Charge: {% if config.charge_type == 'percentage' %}{{ config.charge_value }}%{% else %}N{{ "{:,.0f}".format(config.charge_value) }}{% endif %}
+                                    Charge: {% if config.charge_type == 'percentage' %}{{ config.charge_value }}%{% else %}N{{ "{:,.2f}".format(config.charge_value) }}{% endif %}
                                 </div>
                                 <div class="text-xs text-gray-400">
                                     {% if config.is_active %}Active{% else %}Inactive{% endif %}
@@ -112,10 +112,10 @@
                         <div class="flex justify-between items-start config-display">
                             <div>
                                 <div class="font-medium">
-                                    N{{ "{:,.0f}".format(config.min_amount) }} - N{{ "{:,.0f}".format(config.max_amount) }}
+                                    N{{ "{:,.2f}".format(config.min_amount) }} - N{{ "{:,.2f}".format(config.max_amount) }}
                                 </div>
                                 <div class="text-sm text-gray-600">
-                                    Charge: {% if config.charge_type == 'percentage' %}{{ config.charge_value }}%{% else %}N{{ "{:,.0f}".format(config.charge_value) }}{% endif %}
+                                    Charge: {% if config.charge_type == 'percentage' %}{{ config.charge_value }}%{% else %}N{{ "{:,.2f}".format(config.charge_value) }}{% endif %}
                                 </div>
                                 <div class="text-xs text-gray-400">
                                     {% if config.is_active %}Active{% else %}Inactive{% endif %}

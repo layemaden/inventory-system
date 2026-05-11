@@ -31,11 +31,11 @@
                  data-unit="{{ product.unit }}"
                  onclick="showAddModal(this)">
                 <div class="font-medium text-gray-800 truncate">{{ product.name }}</div>
-                <div class="text-lg font-bold text-blue-600">N{{ "{:,.0f}".format(product.selling_price) }}/{{ product.unit }}</div>
+                <div class="text-lg font-bold text-blue-600">N{{ "{:,.2f}".format(product.selling_price) }}/{{ product.unit }}</div>
                 {% if product.packs %}
                 <div class="text-sm text-green-600">{{ product.packs | length }} pack option{{ 's' if product.packs | length > 1 else '' }} available</div>
                 {% elif product.pack_size and product.pack_size > 1 and product.pack_price %}
-                <div class="text-sm text-green-600">N{{ "{:,.0f}".format(product.pack_price) }}/pack of {{ product.pack_size }}</div>
+                <div class="text-sm text-green-600">N{{ "{:,.2f}".format(product.pack_price) }}/pack of {{ product.pack_size }}</div>
                 {% endif %}
                 <div class="text-sm text-gray-500">{{ "{:g}".format(product.shop_quantity) }} {{ product.unit }}s in shop</div>
             </div>
@@ -115,13 +115,13 @@
                         <div class="flex gap-3">
                             <div class="flex-1">
                                 <label class="block text-xs font-medium text-purple-700 mb-1">POS Amount Received</label>
-                                <input type="number" id="pos-received-amount" min="0" step="100" value="0"
+                                <input type="number" id="pos-received-amount" min="0" step="0.01" value="0"
                                        class="w-full border border-purple-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
                                        oninput="updatePosCashback()">
                             </div>
                             <div class="flex-1">
                                 <label class="block text-xs font-medium text-green-700 mb-1">Cash Back</label>
-                                <input type="number" id="pos-cashback-amount" min="0" step="100" value="0"
+                                <input type="number" id="pos-cashback-amount" min="0" step="0.01" value="0"
                                        class="w-full border border-green-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-500" readonly>
                             </div>
                         </div>
@@ -136,13 +136,13 @@
                     <div class="flex gap-3">
                         <div class="flex-1">
                             <label class="block text-xs font-medium text-green-700 mb-1">Cash Amount</label>
-                            <input type="number" id="split-cash-amount" min="0" step="100" value="0"
+                            <input type="number" id="split-cash-amount" min="0" step="0.01" value="0"
                                    class="w-full border border-green-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-500"
                                    oninput="updateSplitRemaining()">
                         </div>
                         <div class="flex-1">
                             <label class="block text-xs font-medium text-purple-700 mb-1">POS Amount</label>
-                            <input type="number" id="split-pos-amount" min="0" step="100" value="0"
+                            <input type="number" id="split-pos-amount" min="0" step="0.01" value="0"
                                    class="w-full border border-purple-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
                                    oninput="updateSplitRemaining()">
                         </div>
@@ -173,7 +173,7 @@
                     <div id="change-inputs" class="hidden space-y-2">
                         <div>
                             <label class="block text-xs font-medium text-orange-700 mb-1">Change Amount</label>
-                            <input type="number" id="change-amount" min="0" step="50" value="0"
+                            <input type="number" id="change-amount" min="0" step="0.01" value="0"
                                    class="w-full border border-orange-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500">
                         </div>
                         <div>
@@ -471,13 +471,13 @@ function updateSplitRemaining() {
     const remaining = total - cashAmount - posAmount;
 
     const remainingEl = document.getElementById('split-remaining');
-    remainingEl.textContent = 'N' + remaining.toLocaleString();
+    remainingEl.textContent = 'N' + remaining.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
     if (remaining <= 0) {
         remainingEl.classList.remove('text-red-600');
         remainingEl.classList.add('text-green-600');
         if (remaining < 0) {
-            remainingEl.textContent = 'N' + remaining.toLocaleString() + ' (overpaid)';
+            remainingEl.textContent = 'N' + remaining.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' (overpaid)';
         }
     } else {
         remainingEl.classList.remove('text-green-600');
@@ -529,21 +529,21 @@ function showAddModal(element) {
 
     // Build sale type dropdown options
     const select = document.getElementById('sale-type-select');
-    select.innerHTML = `<option value="unit">Unit - N${currentProduct.price.toLocaleString()}/${currentProduct.unit}</option>`;
+    select.innerHTML = `<option value="unit">Unit - N${currentProduct.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}/${currentProduct.unit}</option>`;
 
     // Add pack options from new packs array
     if (currentProduct.packs && currentProduct.packs.length > 0) {
         currentProduct.packs.forEach(pack => {
             const savingsPerUnit = currentProduct.price - (pack.pack_price / pack.pack_size);
             select.innerHTML += `<option value="pack-${pack.id}" data-pack-id="${pack.id}" data-pack-size="${pack.pack_size}" data-pack-price="${pack.pack_price}">
-                ${pack.name} (${pack.pack_size} units) - N${pack.pack_price.toLocaleString()}
+                ${pack.name} (${pack.pack_size} units) - N${pack.pack_price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
             </option>`;
         });
     }
     // Fallback to legacy single pack if no packs array but has legacy pack data
     else if (currentProduct.packSize > 1 && currentProduct.packPrice) {
         select.innerHTML += `<option value="pack-legacy" data-pack-size="${currentProduct.packSize}" data-pack-price="${currentProduct.packPrice}">
-            Pack of ${currentProduct.packSize} - N${currentProduct.packPrice.toLocaleString()}
+            Pack of ${currentProduct.packSize} - N${currentProduct.packPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
         </option>`;
     }
 
@@ -646,8 +646,8 @@ function updateModalTotal() {
         document.getElementById('modal-units-info').textContent = '';
     }
 
-    document.getElementById('modal-price').textContent = 'N' + price.toLocaleString();
-    document.getElementById('modal-subtotal').textContent = 'N' + subtotal.toLocaleString();
+    document.getElementById('modal-price').textContent = 'N' + price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('modal-subtotal').textContent = 'N' + subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
 function confirmAddToCart() {
@@ -788,7 +788,7 @@ function renderCart() {
             <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
                 <div class="flex-1">
                     <div class="font-medium text-sm">${item.name}</div>
-                    <div class="text-xs text-gray-500">N${item.price.toLocaleString()} ${typeLabel}</div>
+                    <div class="text-xs text-gray-500">N${item.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} ${typeLabel}</div>
                     ${item.saleType === 'pack' ? `<div class="text-xs text-blue-600">${item.unitsUsed} ${item.unit}s</div>` : ''}
                 </div>
                 <div class="flex items-center gap-2">
@@ -802,7 +802,7 @@ function renderCart() {
     });
 
     container.innerHTML = html;
-    totalEl.textContent = 'N' + total.toLocaleString();
+    totalEl.textContent = 'N' + total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     completeBtn.disabled = false;
 }
 
@@ -821,7 +821,7 @@ async function completeSale() {
         posAmount = parseFloat(document.getElementById('split-pos-amount').value) || 0;
 
         if (cashAmount + posAmount < total) {
-            showAlert(`Split payment total (N${(cashAmount + posAmount).toLocaleString()}) is less than sale total (N${total.toLocaleString()})`, 'Insufficient Payment', 'error');
+            showAlert(`Split payment total (N${(cashAmount + posAmount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}) is less than sale total (N${total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})`, 'Insufficient Payment', 'error');
             return;
         }
     } else if (currentPaymentMethod === 'pos') {
@@ -832,7 +832,7 @@ async function completeSale() {
             posCashback = parseFloat(document.getElementById('pos-cashback-amount').value) || 0;
 
             if (posReceived < total) {
-                showAlert(`POS amount received (N${posReceived.toLocaleString()}) is less than sale total (N${total.toLocaleString()})`, 'Insufficient Payment', 'error');
+                showAlert(`POS amount received (N${posReceived.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}) is less than sale total (N${total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})`, 'Insufficient Payment', 'error');
                 return;
             }
         }
@@ -899,7 +899,7 @@ async function completeSale() {
             };
 
             document.getElementById('sale-id').textContent = data.sale_id;
-            document.getElementById('sale-total').textContent = 'N' + data.total.toLocaleString();
+            document.getElementById('sale-total').textContent = 'N' + data.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
             // Show payment method badge
             const badge = document.getElementById('sale-payment-badge');
@@ -907,7 +907,7 @@ async function completeSale() {
                 badge.textContent = 'POS';
                 badge.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800';
             } else if (currentPaymentMethod === 'split') {
-                badge.innerHTML = `<span class="text-green-700">Cash: N${cashAmount.toLocaleString()}</span> + <span class="text-purple-700">POS: N${posAmount.toLocaleString()}</span>`;
+                badge.innerHTML = `<span class="text-green-700">Cash: N${cashAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span> + <span class="text-purple-700">POS: N${posAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>`;
                 badge.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800';
             } else {
                 badge.textContent = 'CASH';
@@ -916,13 +916,13 @@ async function completeSale() {
 
             // Show change owed info if applicable
             if (changeOwed > 0) {
-                document.getElementById('sale-total').innerHTML = `N${data.total.toLocaleString()}<br><span class="text-sm text-orange-600">Change owed: N${changeOwed.toLocaleString()}${changeCustomerName ? ' to ' + changeCustomerName : ''}</span>`;
+                document.getElementById('sale-total').innerHTML = `N${data.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}<br><span class="text-sm text-orange-600">Change owed: N${changeOwed.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}${changeCustomerName ? ' to ' + changeCustomerName : ''}</span>`;
             }
 
             // Show POS cashback info if applicable
             if (posCashback > 0) {
                 const currentHtml = document.getElementById('sale-total').innerHTML;
-                document.getElementById('sale-total').innerHTML = currentHtml + `<br><span class="text-sm text-blue-600">POS Cashback given: N${posCashback.toLocaleString()}</span>`;
+                document.getElementById('sale-total').innerHTML = currentHtml + `<br><span class="text-sm text-blue-600">POS Cashback given: N${posCashback.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>`;
             }
 
             document.getElementById('success-modal').classList.remove('hidden');
@@ -960,12 +960,12 @@ async function completeSale() {
 function prepareReceipt(saleData) {
     document.getElementById('receipt-sale-id').textContent = saleData.saleId;
     document.getElementById('receipt-date').textContent = saleData.date;
-    document.getElementById('receipt-total').textContent = 'N' + saleData.total.toLocaleString();
+    document.getElementById('receipt-total').textContent = 'N' + saleData.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
     // Format payment method for receipt
     let paymentText = saleData.paymentMethod.toUpperCase();
     if (saleData.paymentMethod === 'split') {
-        paymentText = `SPLIT (Cash: N${saleData.cashAmount.toLocaleString()}, POS: N${saleData.posAmount.toLocaleString()})`;
+        paymentText = `SPLIT (Cash: N${saleData.cashAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}, POS: N${saleData.posAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})`;
     }
     document.getElementById('receipt-payment').textContent = paymentText;
 
@@ -979,8 +979,8 @@ function prepareReceipt(saleData) {
             <div style="margin-bottom: 5px;">
                 <div>${item.name}${typeStr}</div>
                 <div style="display: flex; justify-content: space-between; padding-left: 10px;">
-                    <span>${formatQty(item.quantity)} x N${item.price.toLocaleString()}</span>
-                    <span>N${item.subtotal.toLocaleString()}</span>
+                    <span>${formatQty(item.quantity)} x N${item.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    <span>N${item.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
             </div>
         `;
@@ -1100,7 +1100,7 @@ async function loadPendingCarts() {
                             </div>
                             <div class="text-sm text-gray-500">
                                 ${cart.item_count} item${cart.item_count > 1 ? 's' : ''} &bull;
-                                N${cart.total_amount.toLocaleString()} &bull;
+                                N${cart.total_amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} &bull;
                                 by ${cart.user}
                             </div>
                             <div class="text-xs text-gray-400">${cart.created_at}</div>

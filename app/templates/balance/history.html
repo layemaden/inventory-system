@@ -35,17 +35,17 @@
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
         <div class="text-gray-500 text-sm">Cash Withdrawals</div>
-        <div class="text-xl font-bold text-green-600">N{{ "{:,.0f}".format(summary.total_cash) }}</div>
+        <div class="text-xl font-bold text-green-600">N{{ "{:,.2f}".format(summary.total_cash) }}</div>
         <div class="text-xs text-gray-400">{{ summary.cash_count }} transactions</div>
     </div>
     <div class="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
         <div class="text-gray-500 text-sm">POS Withdrawals</div>
-        <div class="text-xl font-bold text-purple-600">N{{ "{:,.0f}".format(summary.total_pos) }}</div>
+        <div class="text-xl font-bold text-purple-600">N{{ "{:,.2f}".format(summary.total_pos) }}</div>
         <div class="text-xs text-gray-400">{{ summary.pos_count }} transactions</div>
     </div>
     <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
         <div class="text-gray-500 text-sm">Total Withdrawn</div>
-        <div class="text-xl font-bold text-blue-600">N{{ "{:,.0f}".format(summary.total_cash + summary.total_pos) }}</div>
+        <div class="text-xl font-bold text-blue-600">N{{ "{:,.2f}".format(summary.total_cash + summary.total_pos) }}</div>
     </div>
     <div class="bg-white rounded-lg shadow p-4 border-l-4 border-gray-500">
         <div class="text-gray-500 text-sm">Total Transactions</div>
@@ -81,7 +81,7 @@
                         </span>
                     </td>
                     <td class="px-4 py-3 text-sm text-right font-medium {% if w.withdrawal_type == 'cash' %}text-green-600{% else %}text-purple-600{% endif %}">
-                        N{{ "{:,.0f}".format(w.amount) }}
+                        N{{ "{:,.2f}".format(w.amount) }}
                     </td>
                     <td class="px-4 py-3 text-sm text-gray-600">
                         {{ w.reason or '-' }}

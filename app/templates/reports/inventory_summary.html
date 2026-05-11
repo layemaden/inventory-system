@@ -32,19 +32,19 @@
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-500">Total Stock (All Time)</div>
-        <div class="text-2xl font-bold text-blue-600">{{ "{:,.0f}".format(total_stock) }}</div>
+        <div class="text-2xl font-bold text-blue-600">{{ "{:,.2f}".format(total_stock) }}</div>
     </div>
     <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-500">Total Sold</div>
-        <div class="text-2xl font-bold text-green-600">{{ "{:,.0f}".format(total_sold) }}</div>
+        <div class="text-2xl font-bold text-green-600">{{ "{:,.2f}".format(total_sold) }}</div>
     </div>
     <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-500">Remaining</div>
-        <div class="text-2xl font-bold text-purple-600">{{ "{:,.0f}".format(total_remaining) }}</div>
+        <div class="text-2xl font-bold text-purple-600">{{ "{:,.2f}".format(total_remaining) }}</div>
     </div>
     <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-500">Total Inventory Cost</div>
-        <div class="text-2xl font-bold text-red-600">N{{ "{:,.0f}".format(total_inventory_cost) }}</div>
+        <div class="text-2xl font-bold text-red-600">N{{ "{:,.2f}".format(total_inventory_cost) }}</div>
     </div>
 </div>
 
@@ -72,19 +72,19 @@
                     </td>
                     <td class="px-4 py-3 text-gray-600">{{ item.category }}</td>
                     <td class="px-4 py-3 text-right font-medium text-blue-600">
-                        {{ "{:,.0f}".format(item.total_stock) }}
+                        {{ "{:,.2f}".format(item.total_stock) }}
                     </td>
                     <td class="px-4 py-3 text-right font-medium text-green-600">
-                        {{ "{:,.0f}".format(item.sold) }}
+                        {{ "{:,.2f}".format(item.sold) }}
                     </td>
                     <td class="px-4 py-3 text-right font-bold {% if item.status == 'out' %}text-red-600{% elif item.status == 'low' %}text-yellow-600{% else %}text-purple-600{% endif %}">
-                        {{ "{:,.0f}".format(item.remaining) }}
+                        {{ "{:,.2f}".format(item.remaining) }}
                     </td>
                     <td class="px-4 py-3 text-right text-gray-600">
-                        N{{ "{:,.0f}".format(item.cost_price) }}
+                        N{{ "{:,.2f}".format(item.cost_price) }}
                     </td>
                     <td class="px-4 py-3 text-right font-medium text-red-600">
-                        N{{ "{:,.0f}".format(item.inventory_cost) }}
+                        N{{ "{:,.2f}".format(item.inventory_cost) }}
                     </td>
                     <td class="px-4 py-3 text-center">
                         {% if item.status == 'out' %}
@@ -101,11 +101,11 @@
             <tfoot class="bg-gray-100 font-bold">
                 <tr>
                     <td class="px-4 py-3" colspan="2">Totals</td>
-                    <td class="px-4 py-3 text-right text-blue-600">{{ "{:,.0f}".format(total_stock) }}</td>
-                    <td class="px-4 py-3 text-right text-green-600">{{ "{:,.0f}".format(total_sold) }}</td>
-                    <td class="px-4 py-3 text-right text-purple-600">{{ "{:,.0f}".format(total_remaining) }}</td>
+                    <td class="px-4 py-3 text-right text-blue-600">{{ "{:,.2f}".format(total_stock) }}</td>
+                    <td class="px-4 py-3 text-right text-green-600">{{ "{:,.2f}".format(total_sold) }}</td>
+                    <td class="px-4 py-3 text-right text-purple-600">{{ "{:,.2f}".format(total_remaining) }}</td>
                     <td class="px-4 py-3 text-right text-gray-500">-</td>
-                    <td class="px-4 py-3 text-right text-red-600">N{{ "{:,.0f}".format(total_inventory_cost) }}</td>
+                    <td class="px-4 py-3 text-right text-red-600">N{{ "{:,.2f}".format(total_inventory_cost) }}</td>
                     <td class="px-4 py-3"></td>
                 </tr>
             </tfoot>

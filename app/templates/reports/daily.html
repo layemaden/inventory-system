@@ -39,7 +39,7 @@
     </div>
     <div class="bg-white rounded-lg shadow p-6">
         <div class="text-gray-500 text-sm">Total Sales</div>
-        <div class="text-2xl font-bold text-green-600">N{{ "{:,.0f}".format(total_sales) }}</div>
+        <div class="text-2xl font-bold text-green-600">N{{ "{:,.2f}".format(total_sales) }}</div>
     </div>
     <div class="bg-white rounded-lg shadow p-6">
         <div class="text-gray-500 text-sm">Items Sold</div>
@@ -53,7 +53,7 @@
         <div class="flex justify-between items-center">
             <div>
                 <div class="text-gray-500 text-sm">Total Cash Sales</div>
-                <div class="text-2xl font-bold text-green-600">N{{ "{:,.0f}".format(total_cash) }}</div>
+                <div class="text-2xl font-bold text-green-600">N{{ "{:,.2f}".format(total_cash) }}</div>
             </div>
             <div class="bg-green-100 p-3 rounded-full">
                 <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -66,7 +66,7 @@
         <div class="flex justify-between items-center">
             <div>
                 <div class="text-gray-500 text-sm">Total POS Sales</div>
-                <div class="text-2xl font-bold text-purple-600">N{{ "{:,.0f}".format(total_pos) }}</div>
+                <div class="text-2xl font-bold text-purple-600">N{{ "{:,.2f}".format(total_pos) }}</div>
             </div>
             <div class="bg-purple-100 p-3 rounded-full">
                 <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -79,8 +79,8 @@
         <div class="flex justify-between items-center">
             <div>
                 <div class="text-gray-500 text-sm">POS Banking</div>
-                <div class="text-xl font-bold text-orange-600">N{{ "{:,.0f}".format(total_pos_banking_volume) }}</div>
-                <div class="text-sm text-green-600">Profit: N{{ "{:,.0f}".format(total_pos_banking_profit) }}</div>
+                <div class="text-xl font-bold text-orange-600">N{{ "{:,.2f}".format(total_pos_banking_volume) }}</div>
+                <div class="text-sm text-green-600">Profit: N{{ "{:,.2f}".format(total_pos_banking_profit) }}</div>
             </div>
             <div class="bg-orange-100 p-3 rounded-full">
                 <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -117,17 +117,17 @@
                 <td class="px-3 py-4 font-medium text-gray-900">{{ row.date }}</td>
                 <td class="px-3 py-4 text-right text-gray-600">{{ row.transactions }}</td>
                 <td class="px-3 py-4 text-right text-gray-600">{{ row.items_sold }}</td>
-                <td class="px-3 py-4 text-right text-green-600">N{{ "{:,.0f}".format(row.cash_total) }}</td>
-                <td class="px-3 py-4 text-right text-purple-600">N{{ "{:,.0f}".format(row.pos_total) }}</td>
-                <td class="px-3 py-4 text-right font-bold text-gray-800">N{{ "{:,.0f}".format(row.total_sales) }}</td>
-                <td class="px-3 py-4 text-right text-orange-600 bg-orange-50/30">N{{ "{:,.0f}".format(row.pos_banking_volume) }}</td>
-                <td class="px-3 py-4 text-right font-medium text-green-600 bg-orange-50/30">N{{ "{:,.0f}".format(row.pos_banking_profit) }}</td>
+                <td class="px-3 py-4 text-right text-green-600">N{{ "{:,.2f}".format(row.cash_total) }}</td>
+                <td class="px-3 py-4 text-right text-purple-600">N{{ "{:,.2f}".format(row.pos_total) }}</td>
+                <td class="px-3 py-4 text-right font-bold text-gray-800">N{{ "{:,.2f}".format(row.total_sales) }}</td>
+                <td class="px-3 py-4 text-right text-orange-600 bg-orange-50/30">N{{ "{:,.2f}".format(row.pos_banking_volume) }}</td>
+                <td class="px-3 py-4 text-right font-medium text-green-600 bg-orange-50/30">N{{ "{:,.2f}".format(row.pos_banking_profit) }}</td>
                 {% if is_admin %}
                 <td class="px-3 py-4 text-right bg-green-50">
-                    <span class="cash-carryover-display">N{{ "{:,.0f}".format(row.cash_carryover) }}</span>
+                    <span class="cash-carryover-display">N{{ "{:,.2f}".format(row.cash_carryover) }}</span>
                 </td>
                 <td class="px-3 py-4 text-right bg-purple-50">
-                    <span class="pos-carryover-display">N{{ "{:,.0f}".format(row.pos_carryover) }}</span>
+                    <span class="pos-carryover-display">N{{ "{:,.2f}".format(row.pos_carryover) }}</span>
                 </td>
                 <td class="px-3 py-4 text-center">
                     <button onclick="editCarryover('{{ row.date }}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
@@ -257,8 +257,8 @@ async function editCarryover(date) {
         suggestedPos = data.suggested_pos || 0;
 
         // Display suggested values
-        document.getElementById('suggested-cash-display').textContent = 'N' + suggestedCash.toLocaleString();
-        document.getElementById('suggested-pos-display').textContent = 'N' + suggestedPos.toLocaleString();
+        document.getElementById('suggested-cash-display').textContent = 'N' + suggestedCash.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('suggested-pos-display').textContent = 'N' + suggestedPos.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
         // Set current values (use suggested if no saved value)
         document.getElementById('modal-cash-carryover').value = data.cash_carryover || suggestedCash;
@@ -267,15 +267,15 @@ async function editCarryover(date) {
 
         // Display breakdown
         const bd = data.breakdown || {};
-        document.getElementById('bd-prev-cash-co').textContent = 'N' + (bd.prev_cash_carryover || 0).toLocaleString();
-        document.getElementById('bd-cash-sales').textContent = 'N' + (bd.prev_cash_sales || 0).toLocaleString();
-        document.getElementById('bd-deposit-total').textContent = 'N' + (bd.deposit_total || 0).toLocaleString();
-        document.getElementById('bd-withdrawal-amount').textContent = 'N' + (bd.withdrawal_amount || 0).toLocaleString();
-        document.getElementById('bd-prev-pos-co').textContent = 'N' + (bd.prev_pos_carryover || 0).toLocaleString();
-        document.getElementById('bd-pos-sales').textContent = 'N' + (bd.prev_pos_sales || 0).toLocaleString();
-        document.getElementById('bd-pos-fee').textContent = 'N' + (bd.prev_pos_fee || 0).toLocaleString();
-        document.getElementById('bd-withdrawal-total').textContent = 'N' + (bd.withdrawal_total || 0).toLocaleString();
-        document.getElementById('bd-deposit-amount').textContent = 'N' + (bd.deposit_amount || 0).toLocaleString();
+        document.getElementById('bd-prev-cash-co').textContent = 'N' + (bd.prev_cash_carryover || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('bd-cash-sales').textContent = 'N' + (bd.prev_cash_sales || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('bd-deposit-total').textContent = 'N' + (bd.deposit_total || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('bd-withdrawal-amount').textContent = 'N' + (bd.withdrawal_amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('bd-prev-pos-co').textContent = 'N' + (bd.prev_pos_carryover || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('bd-pos-sales').textContent = 'N' + (bd.prev_pos_sales || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('bd-pos-fee').textContent = 'N' + (bd.prev_pos_fee || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('bd-withdrawal-total').textContent = 'N' + (bd.withdrawal_total || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('bd-deposit-amount').textContent = 'N' + (bd.deposit_amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
         // Show difference indicators
         updateDiffIndicators();
@@ -298,7 +298,7 @@ function updateDiffIndicators() {
     const posDiffEl = document.getElementById('pos-diff');
 
     if (Math.abs(cashDiff) > 0.01) {
-        cashDiffEl.textContent = (cashDiff > 0 ? '+' : '') + 'N' + cashDiff.toLocaleString() + ' from suggested';
+        cashDiffEl.textContent = (cashDiff > 0 ? '+' : '') + 'N' + cashDiff.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' from suggested';
         cashDiffEl.className = 'text-xs mt-1 ' + (cashDiff > 0 ? 'text-green-600' : 'text-red-600');
         cashDiffEl.classList.remove('hidden');
     } else {
@@ -306,7 +306,7 @@ function updateDiffIndicators() {
     }
 
     if (Math.abs(posDiff) > 0.01) {
-        posDiffEl.textContent = (posDiff > 0 ? '+' : '') + 'N' + posDiff.toLocaleString() + ' from suggested';
+        posDiffEl.textContent = (posDiff > 0 ? '+' : '') + 'N' + posDiff.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' from suggested';
         posDiffEl.className = 'text-xs mt-1 ' + (posDiff > 0 ? 'text-green-600' : 'text-red-600');
         posDiffEl.classList.remove('hidden');
     } else {
@@ -349,8 +349,8 @@ async function saveCarryoverFromModal() {
             // Update display values in table
             const row = document.querySelector(`tr[data-date="${currentEditDate}"]`);
             if (row) {
-                row.querySelector('.cash-carryover-display').textContent = 'N' + cashCarryover.toLocaleString();
-                row.querySelector('.pos-carryover-display').textContent = 'N' + posCarryover.toLocaleString();
+                row.querySelector('.cash-carryover-display').textContent = 'N' + cashCarryover.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                row.querySelector('.pos-carryover-display').textContent = 'N' + posCarryover.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
             }
             closeCarryoverModal();
             showAlert('Carryover saved successfully', 'Success', 'success');

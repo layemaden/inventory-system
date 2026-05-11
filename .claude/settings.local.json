@@ -6,7 +6,9 @@
       "Bash(grep:*)",
       "Bash(python -c \"from app.main import app; print\\('App loaded successfully'\\)\")",
       "Bash(python3 -c \"from app.main import app; print\\('App loaded successfully'\\)\")",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(curl -s http://localhost:8000)",
+      "Bash(curl -s -L http://localhost:8000)"
     ]
   }
 }
