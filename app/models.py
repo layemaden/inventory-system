@@ -71,6 +71,7 @@ class Product(Base):
     packs = relationship("ProductPack", back_populates="product", cascade="all, delete-orphan")
     sale_items = relationship("SaleItem", back_populates="product")
     stock_adjustments = relationship("StockAdjustment", back_populates="product")
+    inventory_batches = relationship("InventoryBatch", back_populates="product", cascade="all, delete-orphan")
 
 
 class ProductPack(Base):
@@ -127,6 +128,21 @@ class SaleItem(Base):
     pack = relationship("ProductPack")
 
 
+class InventoryBatch(Base):
+    """Track inventory batches with different cost prices for batch costing"""
+    __tablename__ = "inventory_batches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity = Column(Float, nullable=False)  # Original quantity in this batch
+    remaining_quantity = Column(Float, nullable=False)  # Remaining quantity (for FIFO)
+    cost_price = Column(Float, nullable=False)  # Cost price for this batch
+    location = Column(String(20), default="store")  # "store" or "shop"
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    product = relationship("Product", back_populates="inventory_batches")
+
+
 class StockAdjustment(Base):
     __tablename__ = "stock_adjustments"
 
@@ -136,10 +152,13 @@ class StockAdjustment(Base):
     quantity_change = Column(Float, nullable=False)  # Positive for restock, negative for reduction
     location = Column(String(20), default="store")  # "store" or "shop"
     reason = Column(Text, nullable=True)
+    cost_price = Column(Float, nullable=True)  # Cost price for new inventory (when adding stock)
+    batch_id = Column(Integer, ForeignKey("inventory_batches.id"), nullable=True)  # Link to batch
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     product = relationship("Product", back_populates="stock_adjustments")
     user = relationship("User", back_populates="stock_adjustments")
+    batch = relationship("InventoryBatch")
 
 
 class DailyCarryover(Base):

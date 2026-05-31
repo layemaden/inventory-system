@@ -113,6 +113,7 @@ async def adjust_stock(
     quantity_change: float = Form(...),
     location: str = Form("store"),
     reason: str = Form(""),
+    cost_price: float = Form(None),
     db: Session = Depends(get_db),
     user: models.User = Depends(auth.require_admin)
 ):
@@ -130,13 +131,37 @@ async def adjust_stock(
             detail=f"Cannot reduce {location} stock below 0. Current {location} stock: {current_qty}"
         )
 
+    batch_id = None
+    
+    # If adding stock (positive quantity_change), create or use a batch
+    if quantity_change > 0:
+        # Use provided cost price or fall back to product's current cost price
+        batch_cost_price = cost_price if cost_price is not None else product.cost_price
+        
+        # Create a new inventory batch for this stock addition
+        batch = models.InventoryBatch(
+            product_id=product_id,
+            quantity=quantity_change,
+            remaining_quantity=quantity_change,
+            cost_price=batch_cost_price,
+            location=location
+        )
+        db.add(batch)
+        db.flush()  # Get the batch ID
+        batch_id = batch.id
+        
+        # Update product's cost price to the new batch cost (reflects latest cost)
+        product.cost_price = batch_cost_price
+    
     # Create adjustment record
     adjustment = models.StockAdjustment(
         product_id=product_id,
         user_id=user.id,
         quantity_change=quantity_change,
         location=location,
-        reason=reason
+        reason=reason,
+        cost_price=cost_price if quantity_change > 0 else None,
+        batch_id=batch_id
     )
     db.add(adjustment)
 

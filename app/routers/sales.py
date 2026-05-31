@@ -14,6 +14,46 @@ router = APIRouter(prefix="/sales", tags=["sales"])
 templates = Jinja2Templates(directory=settings.TEMPLATES_DIR)
 
 
+def deduct_from_batches_fifo(db: Session, product_id: int, quantity: float, location: str = "shop"):
+    """
+    Deduct inventory from batches using FIFO (First In First Out).
+    Returns the total cost for the deducted quantity.
+    """
+    # Get batches for this product in the specified location, ordered by creation date (FIFO)
+    batches = db.query(models.InventoryBatch).filter(
+        models.InventoryBatch.product_id == product_id,
+        models.InventoryBatch.location == location,
+        models.InventoryBatch.remaining_quantity > 0
+    ).order_by(models.InventoryBatch.created_at.asc()).all()
+    
+    remaining_to_deduct = quantity
+    total_cost = 0.0
+    
+    for batch in batches:
+        if remaining_to_deduct <= 0:
+            break
+        
+        # How much can we take from this batch?
+        available_in_batch = batch.remaining_quantity
+        take_from_batch = min(available_in_batch, remaining_to_deduct)
+        
+        # Calculate cost for this portion
+        batch_cost = take_from_batch * batch.cost_price
+        total_cost += batch_cost
+        
+        # Update batch
+        batch.remaining_quantity -= take_from_batch
+        remaining_to_deduct -= take_from_batch
+    
+    # If we couldn't deduct everything from batches, fall back to product cost_price
+    if remaining_to_deduct > 0:
+        product = db.query(models.Product).filter(models.Product.id == product_id).first()
+        if product:
+            total_cost += remaining_to_deduct * product.cost_price
+    
+    return total_cost
+
+
 @router.get("", response_class=HTMLResponse)
 async def sales_page(
     request: Request,
@@ -131,12 +171,13 @@ async def complete_sale(
                 price_per_item = product.pack_price or (product.selling_price * pack_size)
 
             units_to_deduct = quantity * pack_size
-            cost_for_item = product.cost_price * pack_size  # Cost per pack
+            # Calculate cost using FIFO batch deduction (but don't deduct yet - we'll do that after sale is validated)
+            cost_for_item_per_unit = product.cost_price  # Fallback
         else:
             pack_id = None  # Ensure pack_id is None for unit sales
             units_to_deduct = quantity
             price_per_item = product.selling_price
-            cost_for_item = product.cost_price
+            cost_for_item_per_unit = product.cost_price  # Fallback
 
         # Check shop stock (in units)
         if product.shop_quantity < units_to_deduct:
@@ -158,7 +199,7 @@ async def complete_sale(
             "product": product,
             "quantity": quantity,
             "unit_price": price_per_item,
-            "cost_price": cost_for_item * quantity,  # Total cost for profit calculation
+            "cost_price_per_unit": cost_for_item_per_unit,  # Will be replaced with FIFO cost
             "sale_type": sale_type,
             "pack_id": pack_id,
             "units_to_deduct": units_to_deduct
@@ -197,20 +238,26 @@ async def complete_sale(
 
     # Create sale items and update stock
     for item_data in sale_items:
+        product = item_data["product"]
+        units_to_deduct = item_data["units_to_deduct"]
+        
+        # Calculate actual cost using FIFO batch deduction from shop batches
+        actual_cost = deduct_from_batches_fifo(db, product.id, units_to_deduct, location="shop")
+        
         sale_item = models.SaleItem(
             sale_id=sale.id,
-            product_id=item_data["product"].id,
+            product_id=product.id,
             quantity=item_data["quantity"],
             unit_price=item_data["unit_price"],
-            cost_price=item_data["cost_price"],
+            cost_price=actual_cost,  # Actual cost based on FIFO batch deduction
             sale_type=item_data["sale_type"],
             pack_id=item_data.get("pack_id"),
-            units_deducted=item_data["units_to_deduct"]
+            units_deducted=units_to_deduct
         )
         db.add(sale_item)
 
         # Deduct units from shop stock
-        item_data["product"].shop_quantity -= item_data["units_to_deduct"]
+        product.shop_quantity -= units_to_deduct
 
     db.commit()
 
