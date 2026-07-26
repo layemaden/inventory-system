@@ -385,13 +385,24 @@
 }
 </style>
 <script>
-let cart = [];
+let cart = loadCart();
 let lastSaleData = null;
 let currentProduct = null;
 let currentSaleType = 'unit';
 let currentPackId = null;
 let currentPackData = null;
 let currentPaymentMethod = 'cash';
+
+function saveCart() {
+    try { localStorage.setItem('pos_cart', JSON.stringify(cart)); } catch(e) {}
+}
+
+function loadCart() {
+    try {
+        const data = localStorage.getItem('pos_cart');
+        return data ? JSON.parse(data) : [];
+    } catch(e) { return []; }
+}
 
 function formatQty(num) {
     return Number.isInteger(num) ? num.toString() : parseFloat(num.toFixed(2)).toString();
@@ -703,6 +714,7 @@ function confirmAddToCart() {
 
     closeAddModal();
     renderCart();
+    saveCart();
 }
 
 function updateQuantity(cartKey, delta) {
@@ -731,17 +743,20 @@ function updateQuantity(cartKey, delta) {
     }
 
     renderCart();
+    saveCart();
 }
 
 function removeFromCart(cartKey) {
     cart = cart.filter(i => i.cartKey !== cartKey);
     renderCart();
+    saveCart();
 }
 
 function resetCart() {
     // Silent cart reset (used after successful sale)
     cart = [];
     renderCart();
+    saveCart();
 }
 
 async function clearCart() {
@@ -752,6 +767,7 @@ async function clearCart() {
     }
     cart = [];
     renderCart();
+    saveCart();
 }
 
 function renderCart() {
@@ -1058,6 +1074,7 @@ async function confirmHoldCart() {
             closeHoldModal();
             cart = [];
             renderCart();
+            saveCart();
             loadPendingCartsCount();
         } else {
             showAlert(data.detail || 'Failed to hold cart', 'Error', 'error');
@@ -1192,6 +1209,7 @@ async function resumeCart(cartId) {
 
         closePendingCartsModal();
         renderCart();
+        saveCart();
         loadPendingCartsCount();
 
         if (hasStockIssues) {
