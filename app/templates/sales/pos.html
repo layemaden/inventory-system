@@ -385,7 +385,7 @@
 }
 </style>
 <script>
-let cart = loadCart();
+let cart = [];
 let lastSaleData = null;
 let currentProduct = null;
 let currentSaleType = 'unit';
@@ -393,8 +393,12 @@ let currentPackId = null;
 let currentPackData = null;
 let currentPaymentMethod = 'cash';
 
+let saveTimer = null;
+
 function saveCart() {
     try { localStorage.setItem('pos_cart', JSON.stringify(cart)); } catch(e) {}
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveCartToServer, 500);
 }
 
 function loadCart() {
@@ -402,6 +406,35 @@ function loadCart() {
         const data = localStorage.getItem('pos_cart');
         return data ? JSON.parse(data) : [];
     } catch(e) { return []; }
+}
+
+async function saveCartToServer() {
+    try {
+        await fetch('/sales/cart/draft', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: cart })
+        });
+    } catch (e) {}
+}
+
+async function clearCartOnServer() {
+    try {
+        await fetch('/sales/cart/draft', { method: 'DELETE' });
+    } catch (e) {}
+}
+
+async function loadCartFromServer() {
+    try {
+        const response = await fetch('/sales/cart/draft');
+        const data = await response.json();
+        if (data.items && data.items.length > 0) {
+            cart = data.items;
+            renderCart();
+            return true;
+        }
+    } catch (e) {}
+    return false;
 }
 
 function formatQty(num) {
@@ -756,7 +789,9 @@ function resetCart() {
     // Silent cart reset (used after successful sale)
     cart = [];
     renderCart();
-    saveCart();
+    try { localStorage.removeItem('pos_cart'); } catch(e) {}
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    clearCartOnServer();
 }
 
 async function clearCart() {
@@ -767,7 +802,9 @@ async function clearCart() {
     }
     cart = [];
     renderCart();
-    saveCart();
+    try { localStorage.removeItem('pos_cart'); } catch(e) {}
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    clearCartOnServer();
 }
 
 function renderCart() {
@@ -1075,6 +1112,7 @@ async function confirmHoldCart() {
             cart = [];
             renderCart();
             saveCart();
+            clearCartOnServer();
             loadPendingCartsCount();
         } else {
             showAlert(data.detail || 'Failed to hold cart', 'Error', 'error');
@@ -1282,8 +1320,23 @@ async function loadPendingChangeCount() {
 
 // Load pending carts count on page load
 document.addEventListener('DOMContentLoaded', function() {
+    loadServerDraft();
     loadPendingCartsCount();
     loadPendingChangeCount();
 });
+
+async function loadServerDraft() {
+    const restored = await loadCartFromServer();
+    if (!restored) {
+        const local = loadCart();
+        if (local.length > 0) {
+            cart = local;
+            renderCart();
+            saveCartToServer();
+        } else {
+            renderCart();
+        }
+    }
+}
 </script>
 {% endblock %}

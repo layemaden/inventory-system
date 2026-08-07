@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from .database import engine, get_db, Base
 from .config import settings
 from . import models, auth
-from .routers import auth as auth_router, products, sales, reports, stock, pos_banking, balance
+from .routers import auth as auth_router, products, sales, reports, stock, pos_banking, balance, reconciliation
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -189,6 +189,41 @@ def run_migrations():
             conn.execute(text("ALTER TABLE sales ADD COLUMN pos_cashback FLOAT DEFAULT 0"))
             print("Added pos_cashback column to sales")
 
+        # Create stock_reconciliations table
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS stock_reconciliations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                period_type VARCHAR(10) NOT NULL,
+                period_start DATE NOT NULL,
+                period_end DATE NOT NULL,
+                label VARCHAR(50),
+                status VARCHAR(20) DEFAULT 'balanced',
+                notes TEXT,
+                created_by INTEGER,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME,
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            )
+        """))
+
+        # Create stock_reconciliation_items table
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS stock_reconciliation_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                reconciliation_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL,
+                product_name VARCHAR(200) NOT NULL,
+                selling_price FLOAT DEFAULT 0,
+                opening_stock FLOAT DEFAULT 0,
+                system_close_stock FLOAT DEFAULT 0,
+                actual_close_stock FLOAT DEFAULT 0,
+                quantity_difference FLOAT DEFAULT 0,
+                value_difference FLOAT DEFAULT 0,
+                FOREIGN KEY (reconciliation_id) REFERENCES stock_reconciliations(id),
+                FOREIGN KEY (product_id) REFERENCES products(id)
+            )
+        """))
+
         conn.commit()
 
 run_migrations()
@@ -233,6 +268,7 @@ app.include_router(reports.router)
 app.include_router(stock.router)
 app.include_router(pos_banking.router)
 app.include_router(balance.router)
+app.include_router(reconciliation.router)
 
 
 def init_db(db: Session):

@@ -40,6 +40,8 @@ a = Analysis(
         'app.routers.reports',
         'app.routers.stock',
         'app.routers.pos_banking',
+        'app.routers.balance',
+        'app.routers.reconciliation',
     ],
     hookspath=[],
     hooksconfig={},

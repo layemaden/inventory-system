@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Enum
+from sqlalchemy import Column, Integer, String, Float, DateTime, Date, ForeignKey, Text, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -246,6 +246,56 @@ class PendingCartItem(Base):
     cart = relationship("PendingCart", back_populates="items")
     product = relationship("Product")
     pack = relationship("ProductPack")
+
+
+class UserCartDraft(Base):
+    """Active draft cart per user, persisted server-side so it survives tab/browser closure"""
+    __tablename__ = "user_cart_drafts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    items = Column(Text, nullable=False, default="[]")  # JSON cart array
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User")
+
+
+class StockReconciliation(Base):
+    """Period-end stock reconciliation (daily/weekly/monthly) for a specific date range."""
+    __tablename__ = "stock_reconciliations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    period_type = Column(String(10), nullable=False)  # "daily", "weekly", "monthly"
+    period_start = Column(Date, nullable=False)
+    period_end = Column(Date, nullable=False)
+    label = Column(String(50), default="")  # e.g. "2026-08-07", "Wk 2026-W32", "2026-08"
+    status = Column(String(20), default="balanced")  # "balanced" or "unbalanced"
+    notes = Column(Text, nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    creator = relationship("User")
+    items = relationship("StockReconciliationItem", back_populates="reconciliation", cascade="all, delete-orphan")
+
+
+class StockReconciliationItem(Base):
+    """Per-product details of a stock reconciliation snapshot."""
+    __tablename__ = "stock_reconciliation_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    reconciliation_id = Column(Integer, ForeignKey("stock_reconciliations.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    product_name = Column(String(200), nullable=False)  # snapshot
+    selling_price = Column(Float, default=0)  # snapshot
+    opening_stock = Column(Float, default=0)
+    system_close_stock = Column(Float, default=0)
+    actual_close_stock = Column(Float, default=0)
+    quantity_difference = Column(Float, default=0)
+    value_difference = Column(Float, default=0)
+
+    reconciliation = relationship("StockReconciliation", back_populates="items")
+    product = relationship("Product")
 
 
 class BalanceWithdrawal(Base):

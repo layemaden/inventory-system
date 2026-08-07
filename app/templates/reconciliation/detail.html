@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Reconciliation Detail - Inventory System{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">Reconciliation Detail</h1>
+        <span class="ml-2 text-sm text-purple-600">Admin Only</span>
+    </div>
+    <div class="flex gap-4">
+        <a href="/reconciliation" class="text-blue-600 hover:underline">Reconcile</a>
+        <a href="/reconciliation/history" class="text-blue-600 hover:underline">History</a>
+    </div>
+</div>
+
+<!-- Header -->
+<div class="bg-white rounded-lg shadow p-4 mb-6 flex flex-wrap gap-6">
+    <div>
+        <div class="text-xs text-gray-500 uppercase">Period</div>
+        <div class="font-bold text-gray-800">{{ rec.label or (rec.period_start|string + ' to ' + rec.period_end|string) }}</div>
+    </div>
+    <div>
+        <div class="text-xs text-gray-500 uppercase">Type</div>
+        <div class="capitalize font-medium">{{ rec.period_type }}</div>
+    </div>
+    <div>
+        <div class="text-xs text-gray-500 uppercase">Range</div>
+        <div class="font-medium">{{ rec.period_start }} to {{ rec.period_end }}</div>
+    </div>
+    <div>
+        <div class="text-xs text-gray-500 uppercase">Status</div>
+        <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ 'bg-green-100 text-green-700' if rec.status == 'balanced' else 'bg-red-100 text-red-600' }}">
+            {{ rec.status|title }}
+        </span>
+    </div>
+    <div>
+        <div class="text-xs text-gray-500 uppercase">By</div>
+        <div class="font-medium">{{ sender }} ({{ rec.created_at.strftime('%Y-%m-%d %H:%M') if rec.created_at else '-' }})</div>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Selling Price</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Opening</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">System Close</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actual</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Diff</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Value Diff</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for item in rec.items %}
+            <tr>
+                <td class="px-4 py-2 text-sm text-gray-800">{{ item.product_name }}</td>
+                <td class="px-4 py-2 text-sm text-right text-gray-600">N{{ "{:,.2f}".format(item.selling_price) }}</td>
+                <td class="px-4 py-2 text-sm text-right text-gray-600">{{ "{:g}".format(item.opening_stock) }}</td>
+                <td class="px-4 py-2 text-sm text-right font-medium text-gray-800">{{ "{:g}".format(item.system_close_stock) }}</td>
+                <td class="px-4 py-2 text-sm text-right font-medium text-gray-800">{{ "{:g}".format(item.actual_close_stock) }}</td>
+                <td class="px-4 py-2 text-sm text-right {{ 'text-gray-600' if item.quantity_difference|abs < 0.005 else ('text-green-600' if item.quantity_difference > 0 else 'text-red-600') }}">
+                    {{ '{:+g}'.format(item.quantity_difference) }}
+                </td>
+                <td class="px-4 py-2 text-sm text-right {{ 'text-gray-600' if item.value_difference|abs < 0.005 else ('text-green-600' if item.value_difference > 0 else 'text-red-600') }}">
+                    N{{ "{:,.2f}".format(item.value_difference) }}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="px-4 py-6 text-center text-gray-500">No items.</td></tr>
+            {% endfor %}
+        </tbody>
+        <tfoot class="bg-gray-50">
+            <tr class="font-semibold">
+                <td class="px-4 py-3 text-sm text-gray-700">Total</td>
+                <td class="px-4 py-3"></td>
+                <td class="px-4 py-3" colspan="2"></td>
+                <td class="px-4 py-3"></td>
+                <td class="px-4 py-3 text-right {{ 'text-gray-600' if total_qty_diff|abs < 0.005 else ('text-green-600' if total_qty_diff > 0 else 'text-red-600') }}">{{ '{:+g}'.format(total_qty_diff) }}</td>
+                <td class="px-4 py-3 text-right {{ 'text-gray-600' if total_value_diff|abs < 0.005 else ('text-green-600' if total_value_diff > 0 else 'text-red-600') }}">N{{ "{:,.2f}".format(total_value_diff) }}</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+{% if rec.notes %}
+<div class="bg-white rounded-lg shadow p-4 mt-6">
+    <div class="text-xs text-gray-500 uppercase mb-2">Notes</div>
+    <p class="text-sm text-gray-700">{{ rec.notes }}</p>
+</div>
+{% endif %}
+{% endblock %}

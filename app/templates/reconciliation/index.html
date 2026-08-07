@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Stock Reconciliation - Inventory System{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">Stock Reconciliation</h1>
+        <span class="text-sm text-gray-500">Compare manually counted closing stock against system closing stock</span>
+        <span class="ml-2 text-sm text-purple-600">Admin Only</span>
+    </div>
+    <div class="flex gap-4">
+        <a href="/reconciliation/history" class="text-blue-600 hover:underline">History</a>
+        <a href="/reports" class="text-blue-600 hover:underline">All Reports</a>
+    </div>
+</div>
+
+<!-- {% if existing %} -->
+<div class="bg-blue-50 border border-blue-200 text-blue-800 text-sm rounded-lg p-3 mb-6">
+    This period was already reconciled (last updated: {{ existing.updated_at.strftime('%Y-%m-%d %H:%M') if existing.updated_at else 'n/a' }}).
+    Saving again will overwrite it.
+</div>
+<!-- {% endif %} -->
+
+<!-- Period Selector -->
+<form method="get" action="/reconciliation" class="bg-white rounded-lg shadow p-4 mb-6 flex flex-wrap items-end gap-4">
+    <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Period Type</label>
+        <select name="period_type" id="period-type" class="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="daily" {% if period_type == 'daily' %}selected{% endif %}>Daily</option>
+            <option value="weekly" {% if period_type == 'weekly' %}selected{% endif %}>Weekly</option>
+            <option value="monthly" {% if period_type == 'monthly' %}selected{% endif %}>Monthly</option>
+        </select>
+    </div>
+
+    <div id="day-input">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Select Day</label>
+        <input type="date" name="day" id="day-selector" value="{{ day }}"
+               class="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+
+    <div id="month-input" class="hidden">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Select Month</label>
+        <input type="month" name="month" id="month-selector" value="{{ start.strftime('%Y-%m') }}"
+               class="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+
+    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Load Period</button>
+</form>
+
+<!-- Period Summary -->
+<div class="bg-white rounded-lg shadow mb-6 p-4 flex flex-wrap gap-6">
+    <div>
+        <div class="text-xs text-gray-500 uppercase">Period</div>
+        <div class="font-bold text-gray-800">{{ label }}</div>
+    </div>
+    <div>
+        <div class="text-xs text-gray-500 uppercase">Start</div>
+        <div class="font-medium">{{ start }}</div>
+    </div>
+    <div>
+        <div class="text-xs text-gray-500 uppercase">End</div>
+        <div class="font-medium">{{ end }}</div>
+    </div>
+    <div>
+        <div class="text-xs text-gray-500 uppercase">Status</div>
+        <div id="status-badge" class="font-medium {% if auto_balanced %}text-green-600{% else %}text-red-600{% endif %}">
+            {{ 'Balanced' if auto_balanced else 'Unbalanced' }} (auto)
+        </div>
+    </div>
+</div>
+
+<!-- Reconciliation Table -->
+<form id="rec-form" class="bg-white rounded-lg shadow overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product (Unit)</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Opening</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">System Close</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Selling Price</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actual Count</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Diff</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Value Diff</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for row in rows %}
+                <tr>
+                    <td class="px-4 py-2 text-sm text-gray-800">
+                        {{ row.name }} <span class="text-xs text-gray-400">({{ row.unit }})</span>
+                        {% if row.saved %}<span class="text-xs text-green-600 ml-1">&#10003;</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-2 text-sm text-right text-gray-600">{{ "{:g}".format(row.opening) }}</td>
+                    <td class="px-4 py-2 text-sm text-right font-medium text-gray-800">{{ "{:g}".format(row.system_close) }}</td>
+                    <td class="px-4 py-2 text-sm text-right text-gray-600">N{{ "{:,.2f}".format(row.selling_price) }}</td>
+                    <td class="px-4 py-2 text-right">
+                        <input type="number" step="0.01" min="0" data-pid="{{ row.id }}"
+                               data-system-close="{{ row.system_close }}"
+                               data-price="{{ row.selling_price }}"
+                               value="{{ row.actual }}"
+                               oninput="recalc()"
+                               class="actual-input w-28 text-right border rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    </td>
+                    <td class="px-4 py-2 text-right font-medium diff-qty" data-pid="{{ row.id }}">{{ "{:+g}".format(row.qty_diff) }}</td>
+                    <td class="px-4 py-2 text-right font-medium diff-val" data-pid="{{ row.id }}">N{{ "{:,.2f}".format(row.value_diff) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="px-4 py-6 text-center text-gray-500">No products found.</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot class="bg-gray-50">
+                <tr class="font-semibold">
+                    <td class="px-4 py-3 text-sm text-gray-700">Total</td>
+                    <td class="px-4 py-3 text-right"></td>
+                    <td class="px-4 py-3 text-right text-gray-800">{{ "{:g}".format(total_system_close) }}</td>
+                    <td class="px-4 py-3 text-right"></td>
+                    <td class="px-4 py-3 text-right text-gray-800" id="total-actual">{{ "{:g}".format(total_actual) }}</td>
+                    <td class="px-4 py-3 text-right" id="total-qty-diff">{{ "{:+g}".format(total_qty_diff) }}</td>
+                    <td class="px-4 py-3 text-right" id="total-value-diff">N{{ "{:,.2f}".format(total_value_diff) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <div class="p-4 border-t flex flex-wrap gap-4 items-end">
+        <div class="flex-1 min-w-[200px]">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <textarea name="notes" rows="2" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">{{ existing_notes or '' }}</textarea>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Status (override)</label>
+            <select name="status" id="status-select" class="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Auto</option>
+                <option value="balanced" {% if existing_status == 'balanced' %}selected{% endif %}>Balanced</option>
+                <option value="unbalanced" {% if existing_status == 'unbalanced' %}selected{% endif %}>Unbalanced</option>
+            </select>
+        </div>
+        <button type="button" onclick="saveRecon()"
+                class="bg-green-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-green-700">
+            Save Reconciliation
+        </button>
+    </div>
+</form>
+
+<script>
+function recalc() {
+    const inputs = document.querySelectorAll('.actual-input');
+    let totalActual = 0, totalQty = 0, totalVal = 0;
+
+    inputs.forEach(inp => {
+        const pid = inp.dataset.pid;
+        const sys = parseFloat(inp.dataset.systemClose) || 0;
+        const price = parseFloat(inp.dataset.price) || 0;
+        const actual = parseFloat(inp.value) || 0;
+        const qty = actual - sys;
+        const val = qty * price;
+
+        totalActual += actual;
+        totalQty += qty;
+        totalVal += val;
+
+        const qEl = document.querySelector('.diff-qty[data-pid="' + pid + '"]');
+        const vEl = document.querySelector('.diff-val[data-pid="' + pid + '"]');
+        if (qEl) {
+            qEl.textContent = (qty >= 0 ? '+' : '') + parseFloat(qty.toFixed(3));
+            qEl.className = 'px-4 py-2 text-right text-sm diff-qty font-medium ' + (Math.abs(qty) < 0.005 ? 'text-gray-600' : (qty > 0 ? 'text-green-600' : 'text-red-600'));
+        }
+        if (vEl) {
+            vEl.textContent = 'N' + val.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            vEl.className = 'px-4 py-2 text-right font-medium diff-val ' + (Math.abs(val) < 0.005 ? 'text-gray-600' : (val > 0 ? 'text-green-600' : 'text-red-600'));
+        }
+    });
+
+    document.getElementById('total-actual').textContent = parseFloat(totalActual.toFixed(3));
+    document.getElementById('total-qty-diff').textContent = (totalQty >= 0 ? '+' : '') + parseFloat(totalQty.toFixed(3));
+    document.getElementById('total-value-diff').textContent = 'N' + totalVal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+    const balanced = Math.abs(totalQty) < 0.005;
+    const badge = document.getElementById('status-badge');
+    badge.textContent = (balanced ? 'Balanced' : 'Unbalanced') + ' (auto)';
+    badge.className = 'font-medium ' + (balanced ? 'text-green-600' : 'text-red-600');
+}
+
+async function saveRecon() {
+    const actuals = {};
+    document.querySelectorAll('.actual-input').forEach(inp => {
+        actuals[inp.dataset.pid] = parseFloat(inp.value) || 0;
+    });
+
+    const statusSelect = document.getElementById('status-select');
+    const notes = document.querySelector('textarea[name="notes"]').value;
+
+    try {
+        const response = await fetch('/reconciliation/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                period_type: '{{ period_type }}',
+                start: '{{ start }}',
+                end: '{{ end }}',
+                label: '{{ label }}',
+                notes: notes,
+                status: statusSelect.value || null,
+                actuals: actuals
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            await showAlert('Reconciliation saved successfully.', 'Saved', 'success');
+            location.reload();
+        } else {
+            showAlert(data.detail || 'Failed to save', 'Error', 'error');
+        }
+    } catch (e) {
+        showAlert('Error saving: ' + e.message, 'Error', 'error');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const typeSel = document.getElementById('period-type');
+    const dayWrap = document.getElementById('day-input');
+    const monthWrap = document.getElementById('month-input');
+    function toggleInputs() {
+        const isMonthly = typeSel.value === 'monthly';
+        dayWrap.classList.toggle('hidden', isMonthly);
+        monthWrap.classList.toggle('hidden', !isMonthly);
+    }
+    if (typeSel) {
+        typeSel.addEventListener('change', toggleInputs);
+        toggleInputs();
+    }
+    recalc();
+});
+</script>
+{% endblock %}

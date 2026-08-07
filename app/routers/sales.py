@@ -14,6 +14,63 @@ router = APIRouter(prefix="/sales", tags=["sales"])
 templates = Jinja2Templates(directory=settings.TEMPLATES_DIR)
 
 
+def _item_units(sale_type: str, pack_size, quantity: float) -> float:
+    """Number of shop units an item consumes based on sale type."""
+    if sale_type == "pack":
+        return quantity * (pack_size or 1)
+    return quantity
+
+
+def _draft_reservation_map(items) -> dict:
+    """Map product_id -> total reserved units for a list of draft cart items."""
+    reservation = {}
+    for item in items or []:
+        product_id = item.get("product_id") or item.get("id")
+        if product_id is None:
+            continue
+        # Prefer explicit unitsUsed (already sent by the client), else compute
+        units = item.get("unitsUsed")
+        if units is None:
+            units = _item_units(
+                item.get("saleType", "unit"),
+                item.get("packSize"),
+                item.get("quantity", 0),
+            )
+        reservation[product_id] = reservation.get(product_id, 0) + (units or 0)
+    return reservation
+
+
+def _pending_reservation_map(items) -> dict:
+    """Map product_id -> total units -> for a list of PendingCartItem."""
+    reservation = {}
+    for item in items or []:
+        units = _item_units(item.sale_type, item.pack_size, item.quantity)
+        reservation[item.product_id] = reservation.get(item.product_id, 0) + units
+    return reservation
+
+
+def apply_reservation_delta(db: Session, old_map: dict, new_map: dict):
+    """Adjust shop_quantity so the reserved (in-cart/hold) units for each product match new_map.
+
+    A product going up is deducted from stock; going down is restored.
+    Raises HTTPException 400 if a deduction would take stock below zero.
+    """
+    for product_id in set(old_map) | set(new_map):
+        delta = new_map.get(product_id, 0) - old_map.get(product_id, 0)
+        if not delta:
+            continue
+        product = db.query(models.Product).filter(models.Product.id == product_id).first()
+        if not product:
+            continue
+        product.shop_quantity = (product.shop_quantity or 0) - delta
+        if product.shop_quantity < 0:
+            db.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient shop stock for reservation of product {product.name}",
+            )
+
+
 def deduct_from_batches_fifo(db: Session, product_id: int, quantity: float, location: str = "shop"):
     """
     Deduct inventory from batches using FIFO (First In First Out).
@@ -401,6 +458,98 @@ async def delete_sale(
     return RedirectResponse(url="/sales/history", status_code=302)
 
 
+# ==================== DRAFT CART (SERVER-SIDE PERSISTENCE) ====================
+
+@router.get("/cart/draft", response_class=JSONResponse)
+async def get_cart_draft(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_login)
+):
+    """Get the current user's active draft cart"""
+    draft = db.query(models.UserCartDraft).filter(
+        models.UserCartDraft.user_id == user.id
+    ).first()
+
+    if not draft:
+        return {"items": []}
+
+    try:
+        items = json.loads(draft.items) if draft.items else []
+    except (ValueError, TypeError):
+        items = []
+
+    return {"items": items}
+
+
+@router.put("/cart/draft", response_class=JSONResponse)
+async def save_cart_draft(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_login)
+):
+    """Save the user's active draft cart"""
+    body = await request.json()
+    items = body.get("items", [])
+    if not isinstance(items, list):
+        items = []
+
+    draft = db.query(models.UserCartDraft).filter(
+        models.UserCartDraft.user_id == user.id
+    ).first()
+
+    old_map = {}
+    if draft:
+        try:
+            old_items = json.loads(draft.items) if draft.items else []
+        except (ValueError, TypeError):
+            old_items = []
+        old_map = _draft_reservation_map(old_items)
+
+    new_map = _draft_reservation_map(items)
+
+    # Adjust reserved shop stock to reflect the new cart contents
+    apply_reservation_delta(db, old_map, new_map)
+
+    if draft:
+        draft.items = json.dumps(items)
+    else:
+        draft = models.UserCartDraft(
+            user_id=user.id,
+            items=json.dumps(items)
+        )
+        db.add(draft)
+
+    db.commit()
+
+    return {"success": True}
+
+
+@router.delete("/cart/draft", response_class=JSONResponse)
+async def clear_cart_draft(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_login)
+):
+    """Clear the user's draft cart"""
+    draft = db.query(models.UserCartDraft).filter(
+        models.UserCartDraft.user_id == user.id
+    ).first()
+
+    if draft:
+        try:
+            old_items = json.loads(draft.items) if draft.items else []
+        except (ValueError, TypeError):
+            old_items = []
+
+        # Restore the reserved units before discarding the draft
+        old_map = _draft_reservation_map(old_items)
+        apply_reservation_delta(db, old_map, {})
+
+        db.delete(draft)
+        db.commit()
+
+    return {"success": True}
+
+
 # ==================== PENDING CART (HOLD/RESUME) ====================
 
 @router.post("/cart/hold", response_class=JSONResponse)
@@ -441,6 +590,17 @@ async def hold_cart(
             pack_size=item.get("pack_size", 1)
         )
         db.add(cart_item)
+
+    # Reserve the held units from shop stock
+    new_map = {}
+    for item in items:
+        units = _item_units(
+            item.get("sale_type", "unit"),
+            item.get("pack_size", 1),
+            item.get("quantity", 0),
+        )
+        new_map[item["product_id"]] = new_map.get(item["product_id"], 0) + units
+    apply_reservation_delta(db, {}, new_map)
 
     db.commit()
 
@@ -531,6 +691,10 @@ async def delete_pending_cart(
 
     if not cart:
         raise HTTPException(status_code=404, detail="Pending cart not found")
+
+    # Restore the reserved units back to shop stock before deleting the hold
+    old_map = _pending_reservation_map(cart.items)
+    apply_reservation_delta(db, old_map, {})
 
     db.delete(cart)
     db.commit()
