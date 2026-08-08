@@ -43,10 +43,28 @@
                 </td>
                 <td class="px-6 py-4 text-gray-600">{{ product.category.name }}</td>
                 <td class="px-6 py-4 text-right text-blue-600">
+                    {% if is_admin %}
+                    <input type="number" step="0.01" min="0"
+                           value="{{ "{:g}".format(product.store_quantity) }}"
+                           data-product-id="{{ product.id }}"
+                           data-location="store"
+                           class="stock-inline w-24 text-right bg-transparent border border-transparent hover:border-blue-300 rounded px-1 py-0.5 text-blue-600 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                           title="Click to edit store stock">
+                    {% else %}
                     {{ "{:g}".format(product.store_quantity) }}
+                    {% endif %}
                 </td>
                 <td class="px-6 py-4 text-right text-green-600">
+                    {% if is_admin %}
+                    <input type="number" step="0.01" min="0"
+                           value="{{ "{:g}".format(product.shop_quantity) }}"
+                           data-product-id="{{ product.id }}"
+                           data-location="shop"
+                           class="stock-inline w-16 text-right text-xs border-none bg-transparent hover:border-green-300 px-1 py-0.5 text-green-600 focus:outline-none focus:ring-1 focus:ring-green-500"
+                           title="Click to edit shop stock">
+                    {% else %}
                     {{ "{:g}".format(product.shop_quantity) }}
+                    {% endif %}
                 </td>
                 <td class="px-6 py-4 text-right font-bold {% if product.stock_quantity == 0 %}text-red-600{% elif product.stock_quantity <= product.reorder_level %}text-yellow-600{% else %}text-gray-800{% endif %}">
                     {{ "{:g}".format(product.stock_quantity) }}
@@ -77,4 +95,75 @@
     <div class="text-center py-8 text-gray-500">No products in inventory</div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function saveStockEdit(input) {
+    const productId = input.dataset.productId;
+    const location = input.dataset.location;
+    let value = parseFloat(input.value);
+    if (isNaN(value) || value < 0) {
+        showAlert('Quantity must be a positive number', 'Invalid Quantity', 'error');
+        return;
+    }
+    value = Math.round(value * 100) / 100;
+    input.value = value;
+
+    const formData = new FormData();
+    formData.append('location', location);
+    formData.append('quantity', value);
+
+    fetch(`/stock/${productId}/adjust/inline`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateStockRow(productId, data.store_quantity, data.shop_quantity);
+        } else {
+            showAlert(data.detail || 'Failed to update stock', 'Error', 'error');
+        }
+    })
+    .catch(err => {
+        showAlert('Failed to update stock: ' + err.message, 'Error', 'error');
+    });
+}
+
+function updateStockRow(productId, storeQty, shopQty) {
+    const inputs = document.querySelectorAll(`input.stock-inline[data-product-id="${productId}"]`);
+    inputs.forEach(inp => {
+        inp.value = inp.dataset.location === 'store' ? storeQty : shopQty;
+    });
+
+    const row = inputs.length > 0 ? inputs[0].closest('tr') : null;
+    if (!row) return;
+
+    const totalCell = row.querySelector('td:nth-child(5)');
+    const total = (storeQty || 0) + (shopQty || 0);
+    totalCell.textContent = total % 1 === 0 ? total : total.toFixed(2);
+
+    const statusCell = row.querySelector('td:nth-child(7)');
+    if (statusCell) {
+        const reorder = parseInt(row.querySelector('td:nth-child(6)').textContent) || 0;
+        if (total <= 0) {
+            statusCell.innerHTML = '<span class="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded">Out of Stock</span>';
+        } else if (shopQty <= 0) {
+            statusCell.innerHTML = '<span class="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-800 rounded">Not in Shop</span>';
+        } else if (total <= reorder) {
+            statusCell.innerHTML = '<span class="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded">Low Stock</span>';
+        } else {
+            statusCell.innerHTML = '<span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">OK</span>';
+        }
+
+        row.className = row.className.replace(/bg-red-50|bg-yellow-50/g, '').trim();
+        if (total <= 0) {
+            row.classList.add('bg-red-50');
+        } else if (total <= reorder) {
+            row.classList.add('bg-yellow-50');
+        }
+    }
+}
+</script>
 {% endblock %}

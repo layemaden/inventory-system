@@ -6,6 +6,7 @@ from sqlalchemy import func
 from .. import models, auth
 from ..database import get_db
 from ..config import settings
+from .sales import deduct_from_batches_fifo
 
 router = APIRouter(prefix="/stock", tags=["stock"])
 templates = Jinja2Templates(directory=settings.TEMPLATES_DIR)
@@ -152,6 +153,9 @@ async def adjust_stock(
         
         # Update product's cost price to the new batch cost (reflects latest cost)
         product.cost_price = batch_cost_price
+    elif quantity_change < 0:
+        # Removing stock: decrement batches FIFO so batch records stay in sync
+        deduct_from_batches_fifo(db, product_id, -quantity_change, location)
     
     # Create adjustment record
     adjustment = models.StockAdjustment(
@@ -173,6 +177,75 @@ async def adjust_stock(
     db.commit()
 
     return RedirectResponse(url=f"/stock/{product_id}/adjust", status_code=302)
+
+
+@router.post("/{product_id}/adjust/inline", response_class=JSONResponse)
+async def adjust_stock_inline(
+    product_id: int,
+    location: str = Form(...),
+    quantity: float = Form(...),
+    reason: str = Form(""),
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_admin)
+):
+    """Set a product's stock for a location directly (inline editing)."""
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    if location not in ("store", "shop"):
+        raise HTTPException(status_code=400, detail="Invalid location")
+
+    if quantity < 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Quantity cannot be negative"
+        )
+
+    current_qty = product.store_quantity if location == "store" else product.shop_quantity
+    delta = quantity - current_qty
+
+    batch_id = None
+    if delta > 0:
+        # New stock added: create an inventory batch to track its cost
+        batch = models.InventoryBatch(
+            product_id=product_id,
+            quantity=delta,
+            remaining_quantity=delta,
+            cost_price=product.cost_price,
+            location=location
+        )
+        db.add(batch)
+        db.flush()
+        batch_id = batch.id
+    elif delta < 0:
+        # Removing stock: decrement batches FIFO so batch records stay in sync
+        deduct_from_batches_fifo(db, product_id, -delta, location)
+
+    # Record the change for the audit trail
+    adjustment = models.StockAdjustment(
+        product_id=product_id,
+        user_id=user.id,
+        quantity_change=delta,
+        location=location,
+        reason=reason or "Inline stock edit",
+        cost_price=product.cost_price if delta > 0 else None,
+        batch_id=batch_id
+    )
+    db.add(adjustment)
+
+    if location == "store":
+        product.store_quantity = quantity
+    else:
+        product.shop_quantity = quantity
+    db.commit()
+
+    return {
+        "success": True,
+        "delta": delta,
+        "store_quantity": product.store_quantity,
+        "shop_quantity": product.shop_quantity
+    }
 
 
 @router.post("/{product_id}/transfer")
