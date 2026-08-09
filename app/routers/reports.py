@@ -1519,3 +1519,154 @@ async def inventory_summary(
             "total_inventory_cost": total_inventory_cost
         }
     )
+
+
+@router.get("/closing-stock", response_class=HTMLResponse)
+async def closing_stock_report(
+    request: Request,
+    start_date: str = None,
+    end_date: str = None,
+    category_id: str = None,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.require_admin)
+):
+    """Daily closing stock per product for a date range.
+
+    Closing stock for a day is reconstructed from current quantities:
+        closing(day) = current + units sold after day - net adjustments after day
+    """
+    if not end_date:
+        end_date = date.today().isoformat()
+    if not start_date:
+        start_date = (date.today() - timedelta(days=30)).isoformat()
+
+    start = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+    category_id_int = None
+    if category_id and category_id.strip():
+        try:
+            category_id_int = int(category_id)
+        except ValueError:
+            pass
+
+    # Build the list of days in the range
+    days = []
+    day = start
+    while day <= end:
+        days.append(day)
+        day += timedelta(days=1)
+
+    # Products (optionally filtered by category)
+    products_query = db.query(
+        models.Product.id,
+        models.Product.name,
+        models.Category.name.label("category"),
+        models.Product.unit,
+        models.Product.store_quantity,
+        models.Product.shop_quantity
+    ).join(models.Category, models.Product.category_id == models.Category.id)
+
+    if category_id_int:
+        products_query = products_query.filter(models.Product.category_id == category_id_int)
+
+    products = products_query.order_by(models.Product.name).all()
+
+    # Current total quantity per product
+    current = {p.id: (p.store_quantity or 0) + (p.shop_quantity or 0) for p in products}
+
+    # Units sold after `end` per product
+    sold_after = dict(db.query(
+        models.SaleItem.product_id,
+        func.sum(models.SaleItem.units_deducted)
+    ).join(models.Sale, models.SaleItem.sale_id == models.Sale.id).filter(
+        func.date(models.Sale.created_at) > end
+    ).group_by(models.SaleItem.product_id).all())
+
+    # Net stock adjustments after `end` per product
+    adj_after = dict(db.query(
+        models.StockAdjustment.product_id,
+        func.sum(models.StockAdjustment.quantity_change)
+    ).filter(
+        func.date(models.StockAdjustment.created_at) > end
+    ).group_by(models.StockAdjustment.product_id).all())
+
+    # Per-day sales (units) within the range
+    sold_by_day = dict(db.query(
+        func.date(models.Sale.created_at).label("sale_date"),
+        models.SaleItem.product_id,
+        func.sum(models.SaleItem.units_deducted)
+    ).join(models.Sale, models.SaleItem.sale_id == models.Sale.id).filter(
+        func.date(models.Sale.created_at) >= start,
+        func.date(models.Sale.created_at) <= end
+    ).group_by(
+        func.date(models.Sale.created_at),
+        models.SaleItem.product_id
+    ).all())
+
+    # Per-day net adjustments within the range
+    adj_by_day = dict(db.query(
+        func.date(models.StockAdjustment.created_at).label("adj_date"),
+        models.StockAdjustment.product_id,
+        func.sum(models.StockAdjustment.quantity_change)
+    ).filter(
+        func.date(models.StockAdjustment.created_at) >= start,
+        func.date(models.StockAdjustment.created_at) <= end
+    ).group_by(
+        func.date(models.StockAdjustment.created_at),
+        models.StockAdjustment.product_id
+    ).all())
+
+    # Closing stock on the last day of the range per product
+    closing = {}
+    for p in products:
+        closing[p.id] = (current[p.id]
+                         + (sold_after.get(p.id) or 0)
+                         - (adj_after.get(p.id) or 0))
+
+    # Walk backwards through the days computing each product's closing stock
+    rows_by_product = {p.id: [] for p in products}
+    # closing[i] is closing stock at end of days[i]
+    # We need closing on each day. Start from last day and move backward.
+    # closing_prev_day = closing_day + sold_that_day - adj_that_day
+    for i in range(len(days) - 1, -1, -1):
+        d = days[i]
+        for p in products:
+            rows_by_product[p.id].insert(0, {
+                "date": d,
+                "closing": closing[p.id]
+            })
+            sold = sold_by_day.get((d, p.id)) or 0
+            adj = adj_by_day.get((d, p.id)) or 0
+            # previous day's closing = this day's closing + sold - adj
+            closing[p.id] = closing[p.id] + sold - adj
+
+    report_data = []
+    total_closing = 0
+    for p in products:
+        closing_values = [r["closing"] for r in rows_by_product[p.id]]
+        total_closing += closing_values[-1] if closing_values else 0
+        report_data.append({
+            "id": p.id,
+            "name": p.name,
+            "category": p.category,
+            "unit": p.unit,
+            "days": rows_by_product[p.id],
+            "current": current[p.id]
+        })
+
+    categories = db.query(models.Category).order_by(models.Category.name).all()
+
+    return templates.TemplateResponse(
+        request, "reports/closing_stock.html", {
+            "user": user,
+            "is_admin": user.role == "admin",
+            "report_data": report_data,
+            "categories": categories,
+            "selected_category": category_id_int,
+            "days": days,
+            "start_date": start_date,
+            "end_date": end_date,
+            "total_closing": total_closing
+        }
+    )
