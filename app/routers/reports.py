@@ -1592,30 +1592,36 @@ async def closing_stock_report(
     ).group_by(models.StockAdjustment.product_id).all())
 
     # Per-day sales (units) within the range
-    sold_by_day = dict(db.query(
+    sold_rows = db.query(
         func.date(models.Sale.created_at).label("sale_date"),
         models.SaleItem.product_id,
-        func.sum(models.SaleItem.units_deducted)
+        func.sum(models.SaleItem.units_deducted).label("total")
     ).join(models.Sale, models.SaleItem.sale_id == models.Sale.id).filter(
         func.date(models.Sale.created_at) >= start,
         func.date(models.Sale.created_at) <= end
     ).group_by(
         func.date(models.Sale.created_at),
         models.SaleItem.product_id
-    ).all())
+    ).all()
+    sold_by_day = {}
+    for row in sold_rows:
+        sold_by_day[(row.sale_date, row.product_id)] = row.total or 0
 
     # Per-day net adjustments within the range
-    adj_by_day = dict(db.query(
+    adj_rows = db.query(
         func.date(models.StockAdjustment.created_at).label("adj_date"),
         models.StockAdjustment.product_id,
-        func.sum(models.StockAdjustment.quantity_change)
+        func.sum(models.StockAdjustment.quantity_change).label("total")
     ).filter(
         func.date(models.StockAdjustment.created_at) >= start,
         func.date(models.StockAdjustment.created_at) <= end
     ).group_by(
         func.date(models.StockAdjustment.created_at),
         models.StockAdjustment.product_id
-    ).all())
+    ).all()
+    adj_by_day = {}
+    for row in adj_rows:
+        adj_by_day[(row.adj_date, row.product_id)] = row.total or 0
 
     # Closing stock on the last day of the range per product
     closing = {}
