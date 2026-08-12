@@ -1605,7 +1605,10 @@ async def closing_stock_report(
     ).all()
     sold_by_day = {}
     for row in sold_rows:
-        sold_by_day[(row.sale_date, row.product_id)] = row.total or 0
+        sale_date = row.sale_date
+        if isinstance(sale_date, str):
+            sale_date = datetime.strptime(sale_date, "%Y-%m-%d").date()
+        sold_by_day[(sale_date, row.product_id)] = row.total or 0
 
     # Per-day net adjustments within the range
     adj_rows = db.query(
@@ -1621,7 +1624,10 @@ async def closing_stock_report(
     ).all()
     adj_by_day = {}
     for row in adj_rows:
-        adj_by_day[(row.adj_date, row.product_id)] = row.total or 0
+        adj_date = row.adj_date
+        if isinstance(adj_date, str):
+            adj_date = datetime.strptime(adj_date, "%Y-%m-%d").date()
+        adj_by_day[(adj_date, row.product_id)] = row.total or 0
 
     # Closing stock on the last day of the range per product
     closing = {}
