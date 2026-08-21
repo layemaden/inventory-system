@@ -616,22 +616,44 @@ async def get_pending_carts(
     db: Session = Depends(get_db),
     user: models.User = Depends(auth.require_login)
 ):
-    """Get all pending carts"""
+    """Get all pending carts with item summaries"""
     carts = db.query(models.PendingCart).order_by(
         models.PendingCart.created_at.desc()
     ).all()
 
-    return [
-        {
+    result = []
+    for cart in carts:
+        items = []
+        for item in cart.items:
+            product = item.product
+            pack_name = None
+            if item.pack_id and item.pack:
+                pack_name = item.pack.name
+
+            items.append({
+                "product_id": item.product_id,
+                "name": product.name,
+                "quantity": item.quantity,
+                "price": item.unit_price,
+                "sale_type": item.sale_type,
+                "pack_id": item.pack_id,
+                "pack_name": pack_name,
+                "pack_size": item.pack_size,
+                "unit": product.unit,
+                "current_stock": product.shop_quantity
+            })
+
+        result.append({
             "id": cart.id,
             "user": cart.user.username,
             "customer_note": cart.customer_note,
             "total_amount": cart.total_amount,
             "item_count": len(cart.items),
-            "created_at": cart.created_at.strftime("%Y-%m-%d %H:%M")
-        }
-        for cart in carts
-    ]
+            "created_at": cart.created_at.strftime("%Y-%m-%d %H:%M"),
+            "items": items
+        })
+
+    return result
 
 
 @router.get("/cart/pending/{cart_id}", response_class=JSONResponse)
